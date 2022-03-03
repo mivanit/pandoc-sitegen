@@ -79,67 +79,6 @@ class PandocMarkdown(object):
 			self.content.lstrip(),
 		])
 
-def get_frontmatter(
-		md_path : Path, 
-		sep : str = '---',
-		loader : Callable[[str], Dict] = yaml.full_load,
-	) -> Dict[str, Any]:
-	"""get the yaml frontmatter from a markdown file"""
-	with open(md_path, 'r') as f:
-		content : str = f.read()
-		if not content.startswith(sep):
-			raise ValueError(f"{md_path} does not start with expected separator '{sep}'")
-		frontmatter : str = content.split(sep, 1)[0]
-	
-	return loader(frontmatter)
-
-def get_content(
-		md_path : Path, 
-		sep : str = '---',
-		join_content : bool = True,
-	) -> str:
-	"""get the markdown content from a markdown file"""
-	with open(md_path, 'r') as f:
-		content : str = f.read()
-
-	if not content.startswith(sep):
-		return content
-	
-	if join_content:
-		return content.split(sep, 1)
-	else:	
-		return content.split(sep, -1)[1]
-
-def write_md(
-		md_path : Path, 
-		content : str, 
-		frontmatter : Dict[str, Any],
-		sep : str = '---',
-		fm_writer : Callable[[Dict], str] = yaml.dump,
-	) -> None:
-	"""write the markdown content to a markdown file"""
-	with open(md_path, 'w') as f:
-		f.write(sep + '\n')
-		f.write(fm_writer(frontmatter))
-		f.write(sep + '\n')
-		f.write(content)
-
-"""
-# old config code
-RESOURCES_DIR : Path = Path('./resources')
-# CSS : str = f"{RESOURCES_DIR}/mystyle.css"
-HEADER : Path = RESOURCES_DIR / "header.html"
-BEFORE : Path = RESOURCES_DIR / "before-body.html"
-AFTER : Path = RESOURCES_DIR / "after-body.html"
-FILTERS : List[str] = [
-	RESOURCES_DIR / "pandoc-filters/csv_code_table.py",
-	RESOURCES_DIR / "pandoc-filters/dendron_links_html.py",
-]
-
-CONTENT_DIR : Path = Path('content')
-PUBLIC_DIR : Path = Path('public')
-"""
-
 """
 example config file:
 ```yaml
@@ -155,11 +94,16 @@ after: !join [*RESOURCES_DIR, "after-body.html"]
 filters:
   - !join [*RESOURCES_DIR, "pandoc-filters/csv_code_table.py"]
   - !join [*RESOURCES_DIR, "pandoc-filters/dendron_links_html.py"]
+
+# index file stuff
+make_index_files: true
+generated_index_suffix: "._index.md"
+mustache_rerender: true
 ```"""
 
 CFG : Dict[str, Any] = None
 
-def gen_cmd(plain_path : str) -> Tuple[List[str],Path]:
+def gen_cmd(plain_path : str, plain_path_out : Optional[str]) -> Tuple[List[str],Path]:
 	"""generate the command to run pandoc
 	
 	### Returns: `Tuple[List[str],Path]`
@@ -168,7 +112,10 @@ def gen_cmd(plain_path : str) -> Tuple[List[str],Path]:
 	 - `Path`
 	   the path to the output file
 	"""
-	out_path : Path(CFG['public']) / Path(f'{plain_path}.html')
+	if plain_path_out is None:
+		plain_path_out = plain_path
+
+	out_path : Path(CFG['public']) / Path(f'{plain_path_out}.html')
 
 	base_cmd : List[str] = [
 		'pandoc',
@@ -189,6 +136,10 @@ def gen_cmd(plain_path : str) -> Tuple[List[str],Path]:
 	return base_cmd, out_path
 
 
+def get_plain_path(fname : Path) -> Path:
+	"""get the plain path from a filename"""
+
+	return Path(str(fname).removesuffix('.md')).relative_to(CFG['content'])
 
 def add_index_page(path_original : Path) -> Path:
 	"""process an index page from `path_original` and return the new path
@@ -202,27 +153,28 @@ def add_index_page(path_original : Path) -> Path:
 	# create the new path
 	path_new : Path = Path(str(path_original).removesuffix('.md') + CFG['generated_index_suffix'])
 	
-	# read the existing content
-	content : str = get_content(path_original)
-	frontmatter : Dict[str, Any] = get_frontmatter(path_original)
+	# read the existing document
+	doc : PandocMarkdown = PandocMarkdown.create_from_file(path_original)
 
 	# if we use a template from a file, append that template to the end of the content
-	if 'template_file' in frontmatter:
-		with open(frontmatter['template_file'], 'r') as f:
-			content += f.read()
+	if 'template_file' in doc.frontmatter:
+		with open(doc.frontmatter['template_file'], 'r') as f:
+			doc.content += f.read()
 
 	# read the frontmatter of all downstream files
 	downstream_frontmatter : List[Dict[str,Any]] = list()
 	for downstream_path in path_original.parent.glob(f'{path_original.stem}*'):
-		fm_temp : Dict[str,Any] = get_frontmatter(downstream_path)
+		fm_temp : Dict[str,Any] = PandocMarkdown.create_from_file(downstream_path).frontmatter
 		fm_temp['__filename__'] = str(downstream_path)
 		downstream_frontmatter.append(fm_temp)
 	
 	# plug the frontmatter into the content using chevron
-	new_content : str = chevron.render(content, { 'children': downstream_frontmatter })
+	new_content : str = chevron.render(doc.content, { 'children': downstream_frontmatter })
 
 	# write the new content
-	write_md(path_new, new_content, frontmatter)
+	doc.content = new_content
+	with open(path_new, 'w') as f:
+		f.write(doc.dumps())
 
 	return path_new
 
@@ -235,20 +187,21 @@ def gen_page(md_path : str) -> None:
 	if not os.path.isfile(md_path):
 		raise FileNotFoundError(f"{md_path} is not a valid source file")
 	
-	plain_path : str = Path(str(md_path).removesuffix('.md')).relative_to(CFG['content'])
+	plain_path : str = get_plain_path(md_path)
+	plain_path_out : Optional[str] = None
+	doc : PandocMarkdown = PandocMarkdown.create_from_file(md_path)
 
 	# TODO: allow for custom specification of after/before/header in frontmatter
 	
 	# if it is a special index file, generate the index page
 	if CFG['make_index_files']:
-		fm : Dict[str, Any] = get_frontmatter(md_path)
-		if 'index' in fm and fm['index']:
+		if ('index' in doc.frontmatter) and (doc.frontmatter['index']):
 			gen_idx_path : str = add_index_page(Path(md_path))
-			plain_path = Path(str(gen_idx_path).removesuffix('.md')).relative_to(CFG['content'])	
+			plain_path_out = get_plain_path(gen_idx_path)
 
 	# construct and run the command
 	print(f"# Generating {plain_path}")
-	cmd, out_path = gen_cmd(plain_path)
+	cmd, out_path = gen_cmd(plain_path, plain_path_out)
 	p_out = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	if p_out.returncode != 0:
 		raise RuntimeError(f"Failed to generate {plain_path}:\n\n{p_out.stderr.decode('utf-8')}")
@@ -256,10 +209,10 @@ def gen_page(md_path : str) -> None:
 	# rerender the page
 	if CFG['mustache_rerender']:
 		with open(out_path, 'r') as f:
-			content = f.read()
-		
-		
-
+			content : str = f.read()
+		content_new : str = chevron.render(content, { 'children': doc.frontmatter })
+		with open(out_path, 'w') as f:
+			f.write(content_new)
 
 def gen_all_pages() -> None:
 	# create all required directories first
