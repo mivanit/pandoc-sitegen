@@ -1,3 +1,109 @@
+"""pandoc-sitegen
+
+yet another site generator using pandoc
+made by github.com/mivanit
+project hosted at https://github.com/mivanit/pandoc-sitegen
+
+# Usage:
+
+see the [example website](example/)!
+
+## create a config file
+
+First, create a config file [example: `config.yml`](example/config.yml) with the following content:
+```yaml
+# base directories
+# ==============================
+# NOTE: these are all relative to the location of the config file!
+# where the script will look for markdown files
+content: &CONTENT_DIR "./content/"
+# where HTML files will be generated
+public: &PUBLIC_DIR "./public/"
+# referenced only in this yaml file, for now
+resources: &RESOURCES_DIR "./resources/"
+
+# pandoc stuff
+# ==============================
+# these files will be passed as arguments to pandoc
+# `!join` is a custom directive that will add the elements of the list together. 
+# useful for concatenating strings
+header: !join [*RESOURCES_DIR, "header.html"] # passed as '--include-in-header'
+before: !join [*RESOURCES_DIR, "before-body.html"] # passed as '--include-before-body'
+after: !join [*RESOURCES_DIR, "after-body.html"] # passed as '--include-after-body'
+
+# these should be paths to any pandoc filters you'd like to use. 
+# if you dont have any, just have it be an empty list
+filters: [] 
+
+# other things
+# ==============================
+make_index_files: true # whether to treat files with `index: true` specially
+generated_index_suffix: "._index.md" # dont worry about this, its for generating temporary files
+
+# whether to give each HTML file a final pass with the mustache renderer, 
+# with the frontmatter from the markdown source passed as the context
+mustache_rerender: true 
+```
+
+# writing content
+
+Now, you can create markdown pages in the `content` directory, with a dot-separated hierarchy. For example, we can have:
+```
+home.md
+blog.md
+blog.post1.md
+blog.post2.md
+```
+
+## index pages
+
+If we want `blog.md` to be an index page, put `index: true` in the frontmatter. The body can then contain mustache syntax 
+
+- files matching `blog.*.md` will have their frontmatter read, and their path added to the dictionary as `__filename__`
+- that list of dictionaries will be passed to mustache as `children`
+
+So, we might have our `blog.md` file look like:
+```markdown
+---
+title: Blog
+description: This is the blog index
+index: true
+---
+
+Here all all the blog posts:
+{{#children}}
+- [**{{title}}**]({{__filename__}})  
+	*{{description}}*
+{{/children}}
+
+{{^children}}
+No blog posts yet. :(
+{{/children}}
+```
+
+
+## building the website
+
+simply run
+```bash
+python build.py <config-file>
+```
+
+this can be done from anywhere -- python will change it's working directory to the directory containing the config file. Look for your built html pages in the directory you specified as `public` in the config file!
+
+# Installation
+
+you will need:
+
+- Python 3.8 or later
+- [`PyYAML`](https://pyyaml.org/), which you can install with `pip install PyYAML`
+- [`chevron`](https://github.com/noahmorrison/chevron) for rendering mustache templates, which you can install with `pip install chevron`
+- [`Pandoc`](https://pandoc.org/) for rendering markdown to html. make sure it is in your path
+
+the script is otherwise standalone. Clone the git repo if you'd like, or just download the file somewhere.
+"""
+
+
 from typing import *
 import subprocess
 import os
@@ -79,28 +185,7 @@ class PandocMarkdown(object):
 			self.content.lstrip(),
 		])
 
-"""
-example config file:
-```yaml
-# base directories
-resources: &RESOURCES_DIR "./resources/"
-content: &CONTENT_DIR "./content/"
-public: &PUBLIC_DIR "./public/"
-
-# pandoc stuff
-header: !join [*RESOURCES_DIR, "header.html"]
-before: !join [*RESOURCES_DIR, "before-body.html"]
-after: !join [*RESOURCES_DIR, "after-body.html"]
-filters:
-  - !join [*RESOURCES_DIR, "pandoc-filters/csv_code_table.py"]
-  - !join [*RESOURCES_DIR, "pandoc-filters/dendron_links_html.py"]
-
-# index file stuff
-make_index_files: true
-generated_index_suffix: "._index.md"
-mustache_rerender: true
-```"""
-
+# yes, using globals like this is bad. I know.
 CFG : Dict[str, Any] = None
 
 def gen_cmd(plain_path : str, plain_path_out : Optional[str]) -> Tuple[List[str],Path]:

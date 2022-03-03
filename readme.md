@@ -96,7 +96,9 @@ you will need:
 - Python 3.8 or later
 - [`PyYAML`](https://pyyaml.org/), which you can install with `pip install PyYAML`
 - [`chevron`](https://github.com/noahmorrison/chevron) for rendering mustache templates, which you can install with `pip install chevron`
-- [`Pandoc`](https://pandoc.org/) for rendering markdown
+- [`Pandoc`](https://pandoc.org/) for rendering markdown to html. make sure it is in your path
+
+the script is otherwise standalone. Clone the git repo if you'd like, or just download the file somewhere.
 
 # similar tools/resources:
 
