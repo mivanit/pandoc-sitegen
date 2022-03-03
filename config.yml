@@ -1,0 +1,17 @@
+# base directories
+resources: &RESOURCES_DIR "./resources/"
+content: &CONTENT_DIR "./content/"
+public: &PUBLIC_DIR "./public/"
+
+# pandoc stuff
+header: !join [*RESOURCES_DIR, "header.html"]
+before: !join [*RESOURCES_DIR, "before-body.html"]
+after: !join [*RESOURCES_DIR, "after-body.html"]
+filters:
+  - !join [*RESOURCES_DIR, "pandoc-filters/csv_code_table.py"]
+  - !join [*RESOURCES_DIR, "pandoc-filters/dendron_links_html.py"]
+
+
+make_index_files: true
+generated_index_suffix: "._index.md"
+mustache_rerender: true
