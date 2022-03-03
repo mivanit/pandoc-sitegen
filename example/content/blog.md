@@ -8,8 +8,8 @@ index: true
 Here all all the blog posts:
 
 {{#children}}
-- [{{title}}]({{__filename__}})
-	{{description}}
+- [**{{title}}**]({{__filename__}})  
+	*{{description}}*
 {{/children}}
 
 {{^children}}
