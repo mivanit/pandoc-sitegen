@@ -234,7 +234,7 @@ def gen_page(md_path : str) -> None:
 	if CFG['mustache_rerender']:
 		with open(out_path, 'r') as f:
 			content : str = f.read()
-		content_new : str = chevron.render(content, doc.frontmatter)
+		content_new : str = chevron.render(content, {**doc.frontmatter, '__filename__': out_path.name})
 		with open(out_path, 'w') as f:
 			f.write(content_new)
 	
