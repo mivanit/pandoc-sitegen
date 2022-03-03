@@ -115,7 +115,7 @@ def gen_cmd(plain_path : str, plain_path_out : Optional[str]) -> Tuple[List[str]
 	if plain_path_out is None:
 		plain_path_out = plain_path
 
-	out_path : Path(CFG['public']) / Path(f'{plain_path_out}.html')
+	out_path : Path = Path(CFG['public']) / Path(f'{plain_path_out}.html')
 
 	base_cmd : List[str] = [
 		'pandoc',
@@ -143,10 +143,8 @@ def get_plain_path(fname : Path) -> Path:
 
 def add_index_page(path_original : Path) -> Path:
 	"""process an index page from `path_original` and return the new path
-
+	
 	new path depends on `CFG['generated_index_suffix']`
-
-	TODO: sorting functions for organizing the items in the index pages
 
 	TODO: this will only work for things organized by dotlists, not nested folders
 	"""
@@ -162,20 +160,42 @@ def add_index_page(path_original : Path) -> Path:
 			doc.content += f.read()
 
 	# read the frontmatter of all downstream files
+
+	downstream_pages : List[str] = path_original.parent.glob(f'{path_original.stem}*')
+	# ignore auto-generated pages, as well as the current page
+	downstream_pages = [
+		p
+		for p in downstream_pages 
+		if (
+			(not p.name.endswith(CFG['generated_index_suffix']))
+			and (p.name != path_original.name)
+		)
+	]
+	
+	# read the frontmatter for each file
 	downstream_frontmatter : List[Dict[str,Any]] = list()
-	for downstream_path in path_original.parent.glob(f'{path_original.stem}*'):
+	for downstream_path in downstream_pages:
+		# read the frontmatter
 		fm_temp : Dict[str,Any] = PandocMarkdown.create_from_file(downstream_path).frontmatter
-		fm_temp['__filename__'] = str(downstream_path)
+		# add the filename relative to the `content` directory
+		fm_temp['__filename__'] = get_plain_path(downstream_path).name + '.html'
+
 		downstream_frontmatter.append(fm_temp)
+
+	# TODO: sorting functions for organizing the items in the index pages
 	
 	# plug the frontmatter into the content using chevron
-	new_content : str = chevron.render(doc.content, { 'children': downstream_frontmatter })
+	new_content : str = (
+		'\n\n<!-- THIS IS AN AUTOMATICALLY GENERATED PAGE, CHANGES WILL BE OVERWRITTEN -->\n\n'
+		+ chevron.render(doc.content, { 'children': downstream_frontmatter })
+	)
 
 	# write the new content
 	doc.content = new_content
 	with open(path_new, 'w') as f:
 		f.write(doc.dumps())
 
+	# return the path of the written file so we know where to find it
 	return path_new
 
 
@@ -188,16 +208,20 @@ def gen_page(md_path : str) -> None:
 		raise FileNotFoundError(f"{md_path} is not a valid source file")
 	
 	plain_path : str = get_plain_path(md_path)
-	plain_path_out : Optional[str] = None
+	plain_path_out : Optional[str] = plain_path
+	is_index_page : bool = False
 	doc : PandocMarkdown = PandocMarkdown.create_from_file(md_path)
 
 	# TODO: allow for custom specification of after/before/header in frontmatter
 	
 	# if it is a special index file, generate the index page
+	# NOTE: when we have an index page, we dymanically generate a sub-index page in markdown,
+	#       but only generate the html using that sub-index page
 	if CFG['make_index_files']:
 		if ('index' in doc.frontmatter) and (doc.frontmatter['index']):
 			gen_idx_path : str = add_index_page(Path(md_path))
-			plain_path_out = get_plain_path(gen_idx_path)
+			plain_path = get_plain_path(gen_idx_path)
+			is_index_page = True
 
 	# construct and run the command
 	print(f"# Generating {plain_path}")
@@ -210,13 +234,18 @@ def gen_page(md_path : str) -> None:
 	if CFG['mustache_rerender']:
 		with open(out_path, 'r') as f:
 			content : str = f.read()
-		content_new : str = chevron.render(content, { 'children': doc.frontmatter })
+		content_new : str = chevron.render(content, doc.frontmatter)
 		with open(out_path, 'w') as f:
 			f.write(content_new)
+	
+	# if an index page, delete the auto-generated index page
+	if is_index_page:
+		os.remove(gen_idx_path)
 
 def gen_all_pages() -> None:
 	# create all required directories first
-	for content_dir in CFG['content'].glob('*'):
+	# REVIEW: is this needed?
+	for content_dir in Path(CFG['content']).glob('*'):
 		if content_dir.is_dir():
 			public_dir : Path = CFG['public'] / content_dir.relative_to(CFG['content'])
 			if not public_dir.exists():
@@ -224,7 +253,18 @@ def gen_all_pages() -> None:
 				print(f"# Created {public_dir}")
 
 	# generate all pages
-	content_files : Iterable[Path] = [*CFG['content'].glob('**/*.md')]
+
+	# read all content files
+	content_files : Iterable[Path] = list(Path(CFG['content']).glob('**/*.md'))
+	
+	# ignore dynamically generated ones
+	content_files = [
+		x 
+		for x in content_files 
+		if not x.name.endswith(CFG['generated_index_suffix'])
+	]
+	
+	# generate
 	print(f"# Generating {len(content_files)} pages:\n\t{[str(x) for x in content_files]}")
 	for md_path in content_files:
 		gen_page(md_path)
@@ -246,7 +286,11 @@ if __name__ == "__main__":
 	# load the config file
 	config_file : str = sys.argv[1]
 	CFG = yaml.full_load(open(config_file, 'r'))
+	
+	# change the path to the location of the config file, since paths are relative to it
+	os.chdir(os.path.dirname(config_file))
 
+	# generate all pages
 	gen_all_pages()
 
 
