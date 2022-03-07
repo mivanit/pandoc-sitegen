@@ -110,4 +110,5 @@ the script is otherwise standalone. Clone the git repo if you'd like, or just do
 - https://github.com/fcanas/bake
 
 
-
+# TODO
+ - handling of links to the "resources" directory (or anywhere outside of the content dir) is kind of broken right now, needs to be fixed. This is a pretty big oversight on my part, oops

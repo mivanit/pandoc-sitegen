@@ -393,6 +393,8 @@ def main(argv : List[str]) -> None:
 	# create the `public` directory, if it doesn't exist
 	if not os.path.isdir(CFG['public']):
 		os.mkdir(CFG['public'])
+	
+	# TODO: handling of links to the "resources" directory is kind of broken right now, needs to be fixed
 
 	# generate all pages
 	gen_all_pages(CFG)
