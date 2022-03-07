@@ -6,7 +6,7 @@ content: &CONTENT_DIR "./content/"
 # where HTML files will be generated
 public: &PUBLIC_DIR "./../docs/"
 # referenced only in this yaml file, for now
-resources: &RESOURCES_DIR "./resources/"
+resources: &RESOURCES_DIR !join [*CONTENT_DIR, "resources/"]
 
 # pandoc stuff
 # ==============================
