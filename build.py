@@ -124,6 +124,10 @@ def join(loader, node):
 # register the tag handler
 yaml.add_constructor('!join', join)
 
+# yes, using globals like this is bad. I know.
+# CFG : Dict[str, Any] = None
+Config = Dict[str, Any]
+
 
 class PandocMarkdown(object):
 	def __init__(
@@ -186,10 +190,11 @@ class PandocMarkdown(object):
 			self.content.lstrip(),
 		])
 
-# yes, using globals like this is bad. I know.
-CFG : Dict[str, Any] = None
-
-def gen_cmd(plain_path : str, plain_path_out : Optional[str]) -> Tuple[List[str],Path]:
+def gen_cmd(
+		plain_path : str, 
+		plain_path_out : Optional[str],
+		CFG : Config,
+	) -> Tuple[List[str],Path]:
 	"""generate the command to run pandoc
 	
 	### Returns: `Tuple[List[str],Path]`
@@ -222,12 +227,12 @@ def gen_cmd(plain_path : str, plain_path_out : Optional[str]) -> Tuple[List[str]
 	return base_cmd, out_path
 
 
-def get_plain_path(fname : Path) -> Path:
+def get_plain_path(fname : Path, CFG : Config) -> Path:
 	"""get the plain path from a filename"""
 
 	return Path(str(fname).removesuffix('.md')).relative_to(CFG['content'])
 
-def add_index_page(path_original : Path) -> Path:
+def add_index_page(path_original : Path, CFG : Config) -> Path:
 	"""process an index page from `path_original` and return the new path
 	
 	new path depends on `CFG['generated_index_suffix']`
@@ -264,7 +269,7 @@ def add_index_page(path_original : Path) -> Path:
 		# read the frontmatter
 		fm_temp : Dict[str,Any] = PandocMarkdown.create_from_file(downstream_path).frontmatter
 		# add the filename relative to the `content` directory
-		fm_temp['__filename__'] = get_plain_path(downstream_path).name + '.html'
+		fm_temp['__filename__'] = get_plain_path(downstream_path, CFG).name + '.html'
 
 		downstream_frontmatter.append(fm_temp)
 
@@ -287,13 +292,13 @@ def add_index_page(path_original : Path) -> Path:
 
 
 
-def gen_page(md_path : str) -> None:
+def gen_page(md_path : str, CFG : Config) -> None:
 	"""generate a single page, putting it in the public directory"""
 	# get the original file
 	if not os.path.isfile(md_path):
 		raise FileNotFoundError(f"{md_path} is not a valid source file")
 	
-	plain_path : str = get_plain_path(md_path)
+	plain_path : str = get_plain_path(md_path, CFG)
 	plain_path_out : Optional[str] = plain_path
 	is_index_page : bool = False
 	doc : PandocMarkdown = PandocMarkdown.create_from_file(md_path)
@@ -305,13 +310,13 @@ def gen_page(md_path : str) -> None:
 	#       but only generate the html using that sub-index page
 	if CFG['make_index_files']:
 		if ('index' in doc.frontmatter) and (doc.frontmatter['index']):
-			gen_idx_path : str = add_index_page(Path(md_path))
-			plain_path = get_plain_path(gen_idx_path)
+			gen_idx_path : str = add_index_page(Path(md_path), CFG)
+			plain_path = get_plain_path(gen_idx_path, CFG)
 			is_index_page = True
 
 	# construct and run the command
 	print(f"# Generating {plain_path}")
-	cmd, out_path = gen_cmd(plain_path, plain_path_out)
+	cmd, out_path = gen_cmd(plain_path, plain_path_out, CFG)
 	p_out = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	if p_out.returncode != 0:
 		raise RuntimeError(f"Failed to generate {plain_path}:\n\n{p_out.stderr.decode('utf-8')}")
@@ -328,15 +333,15 @@ def gen_page(md_path : str) -> None:
 	if is_index_page:
 		os.remove(gen_idx_path)
 
-def gen_all_pages() -> None:
+def gen_all_pages(CFG : Config) -> None:
 	# create all required directories first
 	# REVIEW: is this needed?
-	for content_dir in Path(CFG['content']).glob('*'):
-		if content_dir.is_dir():
-			public_dir : Path = CFG['public'] / content_dir.relative_to(CFG['content'])
-			if not public_dir.exists():
-				public_dir.mkdir(parents=True)
-				print(f"# Created {public_dir}")
+	# for content_dir in Path(CFG['content']).glob('*'):
+	# 	if content_dir.is_dir():
+	# 		public_dir : Path = CFG['public'] / content_dir.relative_to(CFG['content'])
+	# 		if not public_dir.exists():
+	# 			public_dir.mkdir(parents=True)
+	# 			print(f"# Created {public_dir}")
 
 	# generate all pages
 
@@ -353,7 +358,7 @@ def gen_all_pages() -> None:
 	# generate
 	print(f"# Generating {len(content_files)} pages:\n\t{[str(x) for x in content_files]}")
 	for md_path in content_files:
-		gen_page(md_path)
+		gen_page(md_path, CFG)
 
 
 def process_single():
@@ -367,17 +372,31 @@ def process_single():
 	print(out.stderr.decode('utf-8'))
 
 
-if __name__ == "__main__":
+def main(argv : List[str]) -> None:
 	
 	# load the config file
-	config_file : str = sys.argv[1]
-	CFG = yaml.full_load(open(config_file, 'r'))
-	
+	config_file : str = argv[1]
+	CFG : Config = yaml.full_load(open(config_file, 'r'))
+
+	print(f"# Using config file '{config_file}', loaded data:")
+	print('-'*3)
+	print(yaml.dump(CFG, default_flow_style=False, indent=2))
+	print('-'*3)
+
 	# change the path to the location of the config file, since paths are relative to it
 	os.chdir(os.path.dirname(config_file))
 
+	# check the `content` directory exists
+	if not os.path.isdir(CFG['content']):
+		raise FileNotFoundError(f"{CFG['content']} is not a valid directory -- expected to find markdown files in it")
+
+	# create the `public` directory, if it doesn't exist
+	if not os.path.isdir(CFG['public']):
+		os.mkdir(CFG['public'])
+
 	# generate all pages
-	gen_all_pages()
+	gen_all_pages(CFG)
 
 
-
+if __name__ == "__main__":
+	main(sys.argv)
