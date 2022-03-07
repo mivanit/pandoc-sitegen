@@ -4,7 +4,7 @@ yet another site generator using pandoc
 
 # Usage:
 
-see the [example website](example/)!
+see the [example website](https://mivanit.github.io/pandoc-sitegen/)!
 
 ## create a config file
 
