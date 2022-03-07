@@ -110,6 +110,7 @@ import subprocess
 import os
 import sys
 from pathlib import Path
+from distutils.dir_util import copy_tree
 
 import yaml
 import chevron
@@ -386,15 +387,25 @@ def main(argv : List[str]) -> None:
 	# change the path to the location of the config file, since paths are relative to it
 	os.chdir(os.path.dirname(config_file))
 
-	# check the `content` directory exists
+	# check the `<content>` directory exists
 	if not os.path.isdir(CFG['content']):
-		raise FileNotFoundError(f"{CFG['content']} is not a valid directory -- expected to find markdown files in it")
+		raise FileNotFoundError(f"{CFG['content']} is not a valid directory -- should have markdown files in it")
+	if not os.path.isdir(CFG['resources']):
+		raise FileNotFoundError(f"{CFG['resources']} is not a valid directory -- should have find resources in it")
 
-	# create the `public` directory, if it doesn't exist
+	# create the `<public>` directory, if it doesn't exist
 	if not os.path.isdir(CFG['public']):
 		os.mkdir(CFG['public'])
+
+	# copy everything from the `<content>/<resources>` directory to the `<public>/<resources>` directory
+	resource_dir_src : Path = Path(CFG['resources']).relative_to(Path(CFG['content']))
+	resource_dir_dst : str = str(Path(CFG['public']) / resource_dir_src)
+
+	if not os.path.isdir(resource_dir_dst):
+		os.mkdir(resource_dir_dst)
 	
-	# TODO: handling of links to the "resources" directory is kind of broken right now, needs to be fixed
+	print(f"# Copying resources from {CFG['resources']} to {resource_dir_dst}")
+	copy_tree(CFG['resources'], resource_dir_dst)
 
 	# generate all pages
 	gen_all_pages(CFG)
