@@ -239,6 +239,8 @@ def gen_cmd(
 		if isinstance(v, bool):
 			if v:
 				base_cmd.append(f'--{k}')
+		elif isinstance(v, str):
+			base_cmd.extend([f'--{k}', v])
 		elif isinstance(v, Iterable):
 			for x in v:
 				base_cmd.extend([f'--{k}', x])
@@ -336,7 +338,7 @@ def gen_page(md_path : str, CFG : Config) -> None:
 			is_index_page = True
 
 	# construct and run the command
-	print(f"# Generating {plain_path}")
+	print(f"\t{plain_path}")
 	cmd, out_path = gen_cmd(
 		plain_path = plain_path, 
 		plain_path_out = plain_path_out,
@@ -384,6 +386,7 @@ def gen_all_pages(CFG : Config) -> None:
 	
 	# generate
 	print(f"# Generating {len(content_files)} pages:\n\t{[str(x) for x in content_files]}")
+	print('=' * 50)
 	for md_path in content_files:
 		gen_page(md_path, CFG)
 
