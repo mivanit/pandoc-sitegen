@@ -131,6 +131,7 @@ Config = Dict[str, Any]
 
 
 class PandocMarkdown(object):
+	"""handles pandoc-flavored markdown and frontmatter"""
 	def __init__(
 			self, 
 			delim : str = '---',
@@ -195,6 +196,7 @@ def gen_cmd(
 		plain_path : str, 
 		plain_path_out : Optional[str],
 		CFG : Config,
+		frontmatter : Dict[str, Any],
 	) -> Tuple[List[str],Path]:
 	"""generate the command to run pandoc
 	
@@ -204,17 +206,27 @@ def gen_cmd(
 	 - `Path`
 	   the path to the output file
 	"""
+	# if a different plain path not specified, use the same path as the input
 	if plain_path_out is None:
 		plain_path_out = plain_path
-
+	# create the output path
 	out_path : Path = Path(CFG['public']) / Path(f'{plain_path_out}.html')
 
+	# get the pandoc args from *both* the CFG, but override with frontmatter
+	pandoc_args : Dict[str,str] = {
+		**CFG['__pandoc__'],
+		**(frontmatter['__pandoc__'] if '__pandoc__' in frontmatter else dict()),
+	}
+	# remove entries that map to 'None'
+	pandoc_args = {
+		k : v 
+		for k,v in pandoc_args.items() 
+		if v is not None
+	}
+
+	# construct the base command with inputs, outputs, and paths
 	base_cmd : List[str] = [
 		'pandoc',
-		# '-c', f'"{CSS}"',
-		'--include-in-header', CFG['header'],
-		'--include-before-body', CFG['before'],
-		'--include-after-body', CFG['after'],
 		'--mathjax',
 		'-f', 'markdown',
 		'-t', 'html5',
@@ -222,8 +234,16 @@ def gen_cmd(
 		Path(CFG['content']) / Path(f'{plain_path}.md'),
 	]
 
-	for filter_path in CFG['filters']:
-		base_cmd.extend(['--filter', filter_path])
+	# add the pandoc args
+	for k,v in pandoc_args.items():
+		if isinstance(v, bool):
+			if v:
+				base_cmd.append(f'--{k}')
+		elif isinstance(v, Iterable):
+			for x in v:
+				base_cmd.extend([f'--{k}', x])
+		else:
+			base_cmd.extend([f'--{k}', v])
 
 	return base_cmd, out_path
 
@@ -317,7 +337,13 @@ def gen_page(md_path : str, CFG : Config) -> None:
 
 	# construct and run the command
 	print(f"# Generating {plain_path}")
-	cmd, out_path = gen_cmd(plain_path, plain_path_out, CFG)
+	cmd, out_path = gen_cmd(
+		plain_path = plain_path, 
+		plain_path_out = plain_path_out,
+		CFG = CFG,
+		frontmatter = doc.frontmatter,
+	)
+
 	p_out = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	if p_out.returncode != 0:
 		raise RuntimeError(f"Failed to generate {plain_path}:\n\n{p_out.stderr.decode('utf-8')}")
@@ -362,10 +388,11 @@ def gen_all_pages(CFG : Config) -> None:
 		gen_page(md_path, CFG)
 
 
-def process_single():
+def process_single(CFG : Config):
 	"""only for testing purposes"""
+	raise NotImplementedError()
 	fname : str = sys.argv[1].removesuffix('.md')
-	cmd, _ = gen_cmd(fname)
+	cmd, _ = gen_cmd(fname, None, CFG)
 	print(' '.join(cmd))
 
 	out = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -376,6 +403,9 @@ def process_single():
 def main(argv : List[str]) -> None:
 	
 	# load the config file
+	if len(argv) != 2:
+		raise RuntimeError("Usage: python gen.py <config_path>")
+
 	config_file : str = argv[1]
 	CFG : Config = yaml.full_load(open(config_file, 'r'))
 
