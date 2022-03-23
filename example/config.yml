@@ -8,19 +8,6 @@ public: &PUBLIC_DIR "./../docs/"
 # referenced only in this yaml file, for now
 resources: &RESOURCES_DIR !join [*CONTENT_DIR, "resources/"]
 
-# pandoc stuff
-# ==============================
-# these files will be passed as arguments to pandoc
-# `!join` is a custom directive that will add the elements of the list together. 
-# useful for concatenating strings
-header: !join [*RESOURCES_DIR, "header.html"] # passed as '--include-in-header'
-before: !join [*RESOURCES_DIR, "before-body.html"] # passed as '--include-before-body'
-after: !join [*RESOURCES_DIR, "after-body.html"] # passed as '--include-after-body'
-
-# these should be paths to any pandoc filters you'd like to use. 
-# if you dont have any, just have it be an empty list
-filters: [] 
-
 # other things
 # ==============================
 make_index_files: true # whether to treat files with `index: true` specially
@@ -29,3 +16,21 @@ generated_index_suffix: "._index.md" # dont worry about this, its for generating
 # whether to give each HTML file a final pass with the mustache renderer, 
 # with the frontmatter from the markdown source passed as the context
 mustache_rerender: true 
+
+# pandoc stuff
+# ==============================
+# these files will be passed as arguments to pandoc
+# `!join` is a custom directive that will add the elements of the list together. 
+#  useful for concatenating strings
+__pandoc__:
+  include-in-header: !join [*RESOURCES_DIR, "header.html"] # passed as '--include-in-header'
+  include-before-body: !join [*RESOURCES_DIR, "before-body.html"] # passed as '--include-before-body'
+  include-after-body: !join [*RESOURCES_DIR, "after-body.html"] # passed as '--include-after-body'
+
+  # these should be paths to any pandoc filters you'd like to use. 
+  # if you dont have any, just have it be an empty list
+  filter: 
+    - "../filters/links_md2html.py"
+
+  # email-obfuscation: 'references'
+
