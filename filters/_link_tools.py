@@ -2,6 +2,7 @@
 
 By [@mivanit](mivanit.github.io)"""
 
+from ast import Call
 from typing import *
 import re
 
@@ -53,6 +54,19 @@ def get_dendron_link(data : str) -> Union[str,None]:
 	else:
 		return None
 
+def get_markdown_link(data : str) -> Union[str,None]:
+	"""check if the given data is a markdown link
+
+	if no link exists, return `None`
+	otherwise, return a tuple
+		(link text, link target)
+	"""
+	match : re.Match = LINK_REGEXS['md'].pattern.match(data)
+	if match:
+		return (match.group(1), match.group(2))
+	else:
+		return None
+
 def convert_dlink_factory(
 		linktext_gen : Callable = lambda x : x.split('.')[-1],
 		pref : str = '', 
@@ -70,7 +84,46 @@ def convert_dlink_factory(
 		)
 	
 	return convert
+
+
+def convert_md_link_factory(new_ext : str = 'html', old_ext : str = 'md') -> Callable:
+	def convert(link_txt : str, link_tgt : str) -> str:
+		return Link(
+			[ "", [], [] ],
+			[Str(link_txt)],
+			[
+				f"{link_tgt.removesuffix(old_ext)}{new_ext}",
+				"",
+			],
+		)
 	
+	return convert
+
+def md_link_factory(new_ext : str = 'html', old_ext : str = 'md') -> Callable:
+	converter = convert_md_link_factory(
+		new_ext = new_ext,
+		old_ext = old_ext,
+	)
+
+	def filter(		
+			key : Any,
+			value : Any,
+			format : Any,
+			meta : Any,
+		) -> None:
+		"""convert dendron links to markdown links"""
+		
+		# if its a plain string
+		if key == "Str":
+			mlink : Optional[str, Tuple[str,str]] = get_markdown_link(value)
+			if mlink is not None:
+				output = converter(*mlink)
+
+				return output
+		else:
+			return None
+
+	return filter
 
 def dendron_to_markdown_factory(
 		linktext_gen : Callable = lambda x : x.split('.')[-1],
