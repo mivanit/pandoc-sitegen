@@ -19,9 +19,9 @@ mustache_rerender: true
 
 # pandoc stuff
 # ==============================
-# these files will be passed as arguments to pandoc
-# `!join` is a custom directive that will add the elements of the list together. 
-#  useful for concatenating strings
+# these items will be passed as arguments to pandoc
+# note: items which are lists (e.g. `foo: [a, b, c]`) will be passed as `--foo a --foo b --foo c`
+# note: `!join` is a custom directive that will add the elements of the list together. useful for concatenating strings
 __pandoc__:
   include-in-header: !join [*RESOURCES_DIR, "header.html"] # passed as '--include-in-header'
   include-before-body: !join [*RESOURCES_DIR, "before-body.html"] # passed as '--include-before-body'
@@ -32,5 +32,4 @@ __pandoc__:
   filter: 
     - "../filters/links_md2html.py"
 
-  # email-obfuscation: 'references'
-
+  email-obfuscation: 'references'
