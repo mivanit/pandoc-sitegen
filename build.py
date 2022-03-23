@@ -7,7 +7,7 @@ NOTE: this docstring is just a copy of the README.md
 
 # Usage:
 
-see the [example website](example/)!
+see the [example website](https://mivanit.github.io/pandoc-sitegen/)!
 
 ## create a config file
 
@@ -19,22 +19,9 @@ First, create a config file [example: `config.yml`](example/config.yml) with the
 # where the script will look for markdown files
 content: &CONTENT_DIR "./content/"
 # where HTML files will be generated
-public: &PUBLIC_DIR "./public/"
+public: &PUBLIC_DIR "./../docs/"
 # referenced only in this yaml file, for now
-resources: &RESOURCES_DIR "./resources/"
-
-# pandoc stuff
-# ==============================
-# these files will be passed as arguments to pandoc
-# `!join` is a custom directive that will add the elements of the list together. 
-# useful for concatenating strings
-header: !join [*RESOURCES_DIR, "header.html"] # passed as '--include-in-header'
-before: !join [*RESOURCES_DIR, "before-body.html"] # passed as '--include-before-body'
-after: !join [*RESOURCES_DIR, "after-body.html"] # passed as '--include-after-body'
-
-# these should be paths to any pandoc filters you'd like to use. 
-# if you dont have any, just have it be an empty list
-filters: [] 
+resources: &RESOURCES_DIR !join [*CONTENT_DIR, "resources/"]
 
 # other things
 # ==============================
@@ -44,6 +31,23 @@ generated_index_suffix: "._index.md" # dont worry about this, its for generating
 # whether to give each HTML file a final pass with the mustache renderer, 
 # with the frontmatter from the markdown source passed as the context
 mustache_rerender: true 
+
+# pandoc stuff
+# ==============================
+# these items will be passed as arguments to pandoc
+# note: items which are lists (e.g. `foo: [a, b, c]`) will be passed as `--foo a --foo b --foo c`
+# note: `!join` is a custom directive that will add the elements of the list together. useful for concatenating strings
+__pandoc__:
+  include-in-header: !join [*RESOURCES_DIR, "header.html"] # passed as '--include-in-header'
+  include-before-body: !join [*RESOURCES_DIR, "before-body.html"] # passed as '--include-before-body'
+  include-after-body: !join [*RESOURCES_DIR, "after-body.html"] # passed as '--include-after-body'
+
+  # these should be paths to any pandoc filters you'd like to use. 
+  # if you dont have any, just have it be an empty list
+  filter: 
+    - "../filters/links_md2html.py"
+
+  email-obfuscation: 'references'
 ```
 
 # writing content
@@ -82,6 +86,12 @@ No blog posts yet. :(
 {{/children}}
 ```
 
+## resources & assets
+
+Won't lie, this part is kind of messy at the moment. 
+
+Ideally, you have your assets (such as CSS, images) located in a directory under your content directory -- specified by `resources` in the config file. Then, any links to them will be preserved, since the whole directory is copied.
+
 
 ## building the website
 
@@ -102,6 +112,16 @@ you will need:
 - [`Pandoc`](https://pandoc.org/) for rendering markdown to html. make sure it is in your path
 
 the script is otherwise standalone. Clone the git repo if you'd like, or just download the file somewhere.
+
+# similar tools/resources:
+
+- https://github.com/brianbuccola/brianbuccola.github.io
+- https://runningcrocodile.fi/pandoc_static_site/
+- http://pdsite.org/installing/
+- https://github.com/locua/pandoc-python-static-site-gen
+- https://github.com/lukasschwab/pandoc-blog
+- https://github.com/fcanas/bake
+
 """
 
 
@@ -131,6 +151,7 @@ Config = Dict[str, Any]
 
 
 class PandocMarkdown(object):
+	"""handles pandoc-flavored markdown and frontmatter"""
 	def __init__(
 			self, 
 			delim : str = '---',
@@ -195,6 +216,7 @@ def gen_cmd(
 		plain_path : str, 
 		plain_path_out : Optional[str],
 		CFG : Config,
+		frontmatter : Dict[str, Any],
 	) -> Tuple[List[str],Path]:
 	"""generate the command to run pandoc
 	
@@ -204,17 +226,27 @@ def gen_cmd(
 	 - `Path`
 	   the path to the output file
 	"""
+	# if a different plain path not specified, use the same path as the input
 	if plain_path_out is None:
 		plain_path_out = plain_path
-
+	# create the output path
 	out_path : Path = Path(CFG['public']) / Path(f'{plain_path_out}.html')
 
+	# get the pandoc args from *both* the CFG, but override with frontmatter
+	pandoc_args : Dict[str,str] = {
+		**CFG['__pandoc__'],
+		**(frontmatter['__pandoc__'] if '__pandoc__' in frontmatter else dict()),
+	}
+	# remove entries that map to 'None'
+	pandoc_args = {
+		k : v 
+		for k,v in pandoc_args.items() 
+		if v is not None
+	}
+
+	# construct the base command with inputs, outputs, and paths
 	base_cmd : List[str] = [
 		'pandoc',
-		# '-c', f'"{CSS}"',
-		'--include-in-header', CFG['header'],
-		'--include-before-body', CFG['before'],
-		'--include-after-body', CFG['after'],
 		'--mathjax',
 		'-f', 'markdown',
 		'-t', 'html5',
@@ -222,8 +254,18 @@ def gen_cmd(
 		Path(CFG['content']) / Path(f'{plain_path}.md'),
 	]
 
-	for filter_path in CFG['filters']:
-		base_cmd.extend(['--filter', filter_path])
+	# add the pandoc args
+	for k,v in pandoc_args.items():
+		if isinstance(v, bool):
+			if v:
+				base_cmd.append(f'--{k}')
+		elif isinstance(v, str):
+			base_cmd.extend([f'--{k}', v])
+		elif isinstance(v, Iterable):
+			for x in v:
+				base_cmd.extend([f'--{k}', x])
+		else:
+			base_cmd.extend([f'--{k}', v])
 
 	return base_cmd, out_path
 
@@ -316,8 +358,14 @@ def gen_page(md_path : str, CFG : Config) -> None:
 			is_index_page = True
 
 	# construct and run the command
-	print(f"# Generating {plain_path}")
-	cmd, out_path = gen_cmd(plain_path, plain_path_out, CFG)
+	print(f"\t{plain_path}")
+	cmd, out_path = gen_cmd(
+		plain_path = plain_path, 
+		plain_path_out = plain_path_out,
+		CFG = CFG,
+		frontmatter = doc.frontmatter,
+	)
+
 	p_out = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	if p_out.returncode != 0:
 		raise RuntimeError(f"Failed to generate {plain_path}:\n\n{p_out.stderr.decode('utf-8')}")
@@ -358,14 +406,16 @@ def gen_all_pages(CFG : Config) -> None:
 	
 	# generate
 	print(f"# Generating {len(content_files)} pages:\n\t{[str(x) for x in content_files]}")
+	print('=' * 50)
 	for md_path in content_files:
 		gen_page(md_path, CFG)
 
 
-def process_single():
+def process_single(CFG : Config):
 	"""only for testing purposes"""
+	raise NotImplementedError()
 	fname : str = sys.argv[1].removesuffix('.md')
-	cmd, _ = gen_cmd(fname)
+	cmd, _ = gen_cmd(fname, None, CFG)
 	print(' '.join(cmd))
 
 	out = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -376,6 +426,9 @@ def process_single():
 def main(argv : List[str]) -> None:
 	
 	# load the config file
+	if len(argv) != 2:
+		raise RuntimeError("Usage: python gen.py <config_path>")
+
 	config_file : str = argv[1]
 	CFG : Config = yaml.full_load(open(config_file, 'r'))
 
