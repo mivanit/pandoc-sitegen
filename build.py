@@ -438,7 +438,9 @@ def main(argv : List[str]) -> None:
 	print('-'*3)
 
 	# change the path to the location of the config file, since paths are relative to it
-	os.chdir(os.path.dirname(config_file))
+	# only change the dir if we are not already in the correct dir
+	if os.path.dirname(config_file):
+		os.chdir(os.path.dirname(config_file))
 
 	# check the `<content>` directory exists
 	if not os.path.isdir(CFG['content']):
