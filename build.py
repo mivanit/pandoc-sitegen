@@ -133,7 +133,7 @@ from pathlib import Path
 from distutils.dir_util import copy_tree
 
 import yaml
-import chevron
+import chevron # type: ignore
 
 # define custom tag handler for yaml
 # originally from 
@@ -169,11 +169,11 @@ class PandocMarkdown(object):
 		# get the content
 		self.content : str = ''
 
-	def load_file(self, filename : str) -> None:
+	def load_file(self, filename : Path) -> None:
 		"""load a file into the pandoc markdown object
 		
 		### Parameters:
-		 - `filename : str`   
+		 - `filename : Path`   
 		   the filename to load
 		"""
 
@@ -189,14 +189,14 @@ class PandocMarkdown(object):
 			raise ValueError(f'missing sections in file {filename}, check delims')
 
 		# get the first section and parse as yaml
-		self.frontmatter : Dict[str, Any] = self.loader(sections[1])
+		self.frontmatter = self.loader(sections[1])
 		# get the content
-		self.content : str = self.delim.join(sections[2:])
+		self.content = self.delim.join(sections[2:])
 
-		self.initialized : bool = True
+		self.initialized = True
 
 	@staticmethod
-	def create_from_file(filename : str, **kwargs) -> 'PandocMarkdown':
+	def create_from_file(filename : Path, **kwargs) -> 'PandocMarkdown':
 		pmd : PandocMarkdown = PandocMarkdown(**kwargs)
 		pmd.load_file(filename)
 		return pmd
@@ -213,8 +213,8 @@ class PandocMarkdown(object):
 		])
 
 def gen_cmd(
-		plain_path : str, 
-		plain_path_out : Optional[str],
+		plain_path : Path, 
+		plain_path_out : Optional[Path],
 		CFG : Config,
 		frontmatter : Dict[str, Any],
 	) -> Tuple[List[str],Path]:
@@ -245,13 +245,15 @@ def gen_cmd(
 	}
 
 	# construct the base command with inputs, outputs, and paths
+	md_doc_path : Path = Path(CFG['content']) / Path(f'{plain_path}.md')
+
 	base_cmd : List[str] = [
 		'pandoc',
 		'--mathjax',
 		'-f', 'markdown',
 		'-t', 'html5',
-		'-o', out_path,
-		Path(CFG['content']) / Path(f'{plain_path}.md'),
+		'-o', str(out_path),
+		str(md_doc_path),
 	]
 
 	# add the pandoc args
@@ -295,11 +297,10 @@ def add_index_page(path_original : Path, CFG : Config) -> Path:
 
 	# read the frontmatter of all downstream files
 
-	downstream_pages : List[str] = path_original.parent.glob(f'{path_original.stem}*')
 	# ignore auto-generated pages, as well as the current page
-	downstream_pages = [
+	downstream_pages : List[Path] = [
 		p
-		for p in downstream_pages 
+		for p in path_original.parent.glob(f'{path_original.stem}*') 
 		if (
 			(not p.name.endswith(CFG['generated_index_suffix']))
 			and (p.name != path_original.name)
@@ -335,14 +336,13 @@ def add_index_page(path_original : Path, CFG : Config) -> Path:
 
 
 
-def gen_page(md_path : str, CFG : Config) -> None:
+def gen_page(md_path : Path, CFG : Config) -> None:
 	"""generate a single page, putting it in the public directory"""
 	# get the original file
 	if not os.path.isfile(md_path):
 		raise FileNotFoundError(f"{md_path} is not a valid source file")
 	
-	plain_path : str = get_plain_path(md_path, CFG)
-	plain_path_out : Optional[str] = plain_path
+	plain_path : Path = get_plain_path(md_path, CFG)
 	is_index_page : bool = False
 	doc : PandocMarkdown = PandocMarkdown.create_from_file(md_path)
 
@@ -353,7 +353,7 @@ def gen_page(md_path : str, CFG : Config) -> None:
 	#       but only generate the html using that sub-index page
 	if CFG['make_index_files']:
 		if ('index' in doc.frontmatter) and (doc.frontmatter['index']):
-			gen_idx_path : str = add_index_page(Path(md_path), CFG)
+			gen_idx_path : Path = add_index_page(md_path, CFG)
 			plain_path = get_plain_path(gen_idx_path, CFG)
 			is_index_page = True
 
@@ -361,7 +361,7 @@ def gen_page(md_path : str, CFG : Config) -> None:
 	print(f"\t{plain_path}")
 	cmd, out_path = gen_cmd(
 		plain_path = plain_path, 
-		plain_path_out = plain_path_out,
+		plain_path_out = plain_path,
 		CFG = CFG,
 		frontmatter = doc.frontmatter,
 	)
