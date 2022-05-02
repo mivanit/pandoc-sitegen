@@ -72,7 +72,7 @@ description: This is the blog index
 index: true
 ---
 
-Here all all the blog posts:
+Here are all the blog posts:
 {{#children}}
 - [**{{title}}**]({{__filename__}})  
 	*{{description}}*
