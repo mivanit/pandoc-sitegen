@@ -295,6 +295,11 @@ def add_index_page(path_original : Path, CFG : Config) -> Path:
 		with open(doc.frontmatter['template_file'], 'r') as f:
 			doc.content += f.read()
 
+	# figure out how we should sort the downstream pages
+	# TODO: make it read defaults from config
+	sort_key : str = doc.frontmatter.get('__index_sort_key__', 'title')
+	sort_reverse : bool = doc.frontmatter.get('__index_sort_reverse__', False)
+
 	# read the frontmatter of all downstream files
 
 	# ignore auto-generated pages, as well as the current page
@@ -317,7 +322,11 @@ def add_index_page(path_original : Path, CFG : Config) -> Path:
 
 		downstream_frontmatter.append(fm_temp)
 
-	# TODO: sorting functions for organizing the items in the index pages
+	# sort the paths according to the frontmatter
+	downstream_frontmatter.sort(
+		key = lambda x: x.get(sort_key, ''),
+		reverse = sort_reverse,
+	)
 	
 	# plug the frontmatter into the content using chevron
 	new_content : str = (
@@ -343,6 +352,8 @@ def gen_page(md_path : Path, CFG : Config) -> None:
 		raise FileNotFoundError(f"{md_path} is not a valid source file")
 	
 	plain_path : Path = get_plain_path(md_path, CFG)
+	plain_path_out : Path = plain_path
+	# TODO
 	is_index_page : bool = False
 	doc : PandocMarkdown = PandocMarkdown.create_from_file(md_path)
 
@@ -361,7 +372,7 @@ def gen_page(md_path : Path, CFG : Config) -> None:
 	print(f"\t{plain_path}")
 	cmd, out_path = gen_cmd(
 		plain_path = plain_path, 
-		plain_path_out = plain_path,
+		plain_path_out = plain_path_out,
 		CFG = CFG,
 		frontmatter = doc.frontmatter,
 	)
