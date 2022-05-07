@@ -59,10 +59,10 @@ blog.post2.md
 
 ## index pages
 
-If we want `blog.md` to be an index page, put `index: true` in the frontmatter. The body can then contain mustache syntax 
+If we want `blog.md` to be an index page, put `__index__: true` in the frontmatter. The body can then contain mustache syntax 
 
 - files matching `blog.*.md` will have their frontmatter read, and their path added to the dictionary as `__filename__`
-- that list of dictionaries will be passed to mustache as `children`
+- that list of dictionaries will be passed to mustache as `__children__`
 
 So, we might have our `blog.md` file look like:
 ```markdown
@@ -72,15 +72,15 @@ description: This is the blog index
 index: true
 ---
 
-Here are all the blog posts:
-{{#children}}
+Here all all the blog posts:
+{{#__children__}}
 - [**{{title}}**]({{__filename__}})  
 	*{{description}}*
-{{/children}}
+{{/__children__}}
 
-{{^children}}
+{{^__children__}}
 No blog posts yet. :(
-{{/children}}
+{{/__children__}}
 ```
 
 ## resources & assets
@@ -118,4 +118,3 @@ the script is otherwise standalone. Clone the git repo if you'd like, or just do
 - https://github.com/locua/pandoc-python-static-site-gen
 - https://github.com/lukasschwab/pandoc-blog
 - https://github.com/fcanas/bake
-

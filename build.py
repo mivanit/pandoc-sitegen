@@ -25,7 +25,7 @@ resources: &RESOURCES_DIR !join [*CONTENT_DIR, "resources/"]
 
 # other things
 # ==============================
-make_index_files: true # whether to treat files with `index: true` specially
+make_index_files: true # whether to treat files with `__index__: true` specially
 generated_index_suffix: "._index.md" # dont worry about this, its for generating temporary files
 
 # whether to give each HTML file a final pass with the mustache renderer, 
@@ -65,7 +65,7 @@ blog.post2.md
 If we want `blog.md` to be an index page, put `index: true` in the frontmatter. The body can then contain mustache syntax 
 
 - files matching `blog.*.md` will have their frontmatter read, and their path added to the dictionary as `__filename__`
-- that list of dictionaries will be passed to mustache as `children`
+- that list of dictionaries will be passed to mustache as `__children__`
 
 So, we might have our `blog.md` file look like:
 ```markdown
@@ -76,14 +76,14 @@ index: true
 ---
 
 Here all all the blog posts:
-{{#children}}
+{{#__children__}}
 - [**{{title}}**]({{__filename__}})  
 	*{{description}}*
-{{/children}}
+{{/__children__}}
 
-{{^children}}
+{{^__children__}}
 No blog posts yet. :(
-{{/children}}
+{{/__children__}}
 ```
 
 ## resources & assets
@@ -130,6 +130,7 @@ import subprocess
 import os
 import sys
 from pathlib import Path
+from dataclasses import dataclass
 from distutils.dir_util import copy_tree
 
 import yaml
@@ -145,9 +146,40 @@ def join(loader, node):
 # register the tag handler
 yaml.add_constructor('!join', join)
 
-# yes, using globals like this is bad. I know.
-# CFG : Dict[str, Any] = None
+# define a custom `Config` type
 Config = Dict[str, Any]
+
+
+class FrontmatterKeys:
+	"""read-only class of special frontmatter keys"""
+	index : str = "__index__"
+	index_sort_key : str = "__index_sort_key__"
+	index_sort_reverse : str = "__index_sort_reverse__"
+	pandoc : str = "__pandoc__"
+	filename : str = "__filename__"
+	children : str = "__children__"
+
+	def __init__(self):
+		raise Exception("FrontmatterKeys is a read-only class")
+	
+	def __setattr__(self, name : str, value : Any) -> None:
+		raise Exception("FrontmatterKeys is a read-only class")
+
+
+# define a default config
+DEFAULT_CONFIG : Config = {
+	FrontmatterKeys.pandoc : { 'email-obfuscation' : 'references' },
+	'content' : None,
+	'generated_index_suffix' : '._index.md',
+	'make_index_files' : True,
+	'mustache_rerender' : True,
+	'public' : None,
+	'resources' : None,
+	'default_frontmatter' : {
+		FrontmatterKeys.index_sort_key : 'title',
+		FrontmatterKeys.index_sort_reverse : False,
+	}
+}
 
 
 class PandocMarkdown(object):
@@ -235,7 +267,7 @@ def gen_cmd(
 	# get the pandoc args from *both* the CFG, but override with frontmatter
 	pandoc_args : Dict[str,str] = {
 		**CFG['__pandoc__'],
-		**(frontmatter['__pandoc__'] if '__pandoc__' in frontmatter else dict()),
+		**(frontmatter.get(FrontmatterKeys.pandoc, dict())),
 	}
 	# remove entries that map to 'None'
 	pandoc_args = {
@@ -295,11 +327,6 @@ def add_index_page(path_original : Path, CFG : Config) -> Path:
 		with open(doc.frontmatter['template_file'], 'r') as f:
 			doc.content += f.read()
 
-	# figure out how we should sort the downstream pages
-	# TODO: make it read defaults from config
-	sort_key : str = doc.frontmatter.get('__index_sort_key__', 'title')
-	sort_reverse : bool = doc.frontmatter.get('__index_sort_reverse__', False)
-
 	# read the frontmatter of all downstream files
 
 	# ignore auto-generated pages, as well as the current page
@@ -318,20 +345,30 @@ def add_index_page(path_original : Path, CFG : Config) -> Path:
 		# read the frontmatter
 		fm_temp : Dict[str,Any] = PandocMarkdown.create_from_file(downstream_path).frontmatter
 		# add the filename relative to the `content` directory
-		fm_temp['__filename__'] = get_plain_path(downstream_path, CFG).name + '.html'
+		fm_temp[FrontmatterKeys.filename] = get_plain_path(downstream_path, CFG).name + '.html'
 
 		downstream_frontmatter.append(fm_temp)
+
+	# figure out how we should sort the downstream pages
+	sort_key : str = doc.frontmatter.get(
+		FrontmatterKeys.index_sort_key, 
+		DEFAULT_CONFIG['default_frontmatter'][FrontmatterKeys.index_sort_key],
+	)
+	sort_reverse : bool = doc.frontmatter.get(
+		FrontmatterKeys.index_sort_reverse,
+		DEFAULT_CONFIG['default_frontmatter'][FrontmatterKeys.index_sort_reverse],
+	)
 
 	# sort the paths according to the frontmatter
 	downstream_frontmatter.sort(
 		key = lambda x: x.get(sort_key, ''),
 		reverse = sort_reverse,
 	)
-	
+
 	# plug the frontmatter into the content using chevron
 	new_content : str = (
 		'\n\n<!-- THIS IS AN AUTOMATICALLY GENERATED PAGE, CHANGES WILL BE OVERWRITTEN -->\n\n'
-		+ chevron.render(doc.content, { 'children': downstream_frontmatter })
+		+ chevron.render(doc.content, { FrontmatterKeys.children : downstream_frontmatter })
 	)
 
 	# write the new content
@@ -363,7 +400,7 @@ def gen_page(md_path : Path, CFG : Config) -> None:
 	# NOTE: when we have an index page, we dymanically generate a sub-index page in markdown,
 	#       but only generate the html using that sub-index page
 	if CFG['make_index_files']:
-		if ('index' in doc.frontmatter) and (doc.frontmatter['index']):
+		if (FrontmatterKeys.index in doc.frontmatter) and (doc.frontmatter[FrontmatterKeys.index]):
 			gen_idx_path : Path = add_index_page(md_path, CFG)
 			plain_path = get_plain_path(gen_idx_path, CFG)
 			is_index_page = True
@@ -385,7 +422,10 @@ def gen_page(md_path : Path, CFG : Config) -> None:
 	if CFG['mustache_rerender']:
 		with open(out_path, 'r') as f:
 			content : str = f.read()
-		content_new : str = chevron.render(content, {**doc.frontmatter, '__filename__': out_path.name})
+		content_new : str = chevron.render(
+			content, 
+			{**doc.frontmatter, FrontmatterKeys.filename : out_path.name},
+		)
 		with open(out_path, 'w') as f:
 			f.write(content_new)
 	

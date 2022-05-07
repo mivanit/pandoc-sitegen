@@ -2,18 +2,18 @@
 title: Blog
 description: This is the blog index
 bottom_text: that's all we've got on the blog!
-index: true
+__index__: true
 ---
 
 Here all all the blog posts:
 
-{{#children}}
+{{#__children__}}
 - [**{{title}}**]({{__filename__}})  
 	*{{description}}*
-{{/children}}
+{{/__children__}}
 
-{{^children}}
+{{^__children__}}
 No blog posts yet. :(
-{{/children}}
+{{/__children__}}
 
 {{bottom_text}}
