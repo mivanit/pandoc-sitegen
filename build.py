@@ -45,7 +45,7 @@ __pandoc__:
   # these should be paths to any pandoc filters you'd like to use. 
   # if you dont have any, just have it be an empty list
   filter: 
-    - "../filters/links_md2html.py"
+	- "../filters/links_md2html.py"
 
   email-obfuscation: 'references'
 ```
@@ -134,90 +134,98 @@ from dataclasses import dataclass
 from distutils.dir_util import copy_tree
 
 import yaml
-import chevron # type: ignore
+import chevron  # type: ignore
 
 # define custom tag handler for yaml
-# originally from 
+# originally from
 # https://stackoverflow.com/questions/5484016/how-can-i-do-string-concatenation-or-string-replacement-in-yaml#5954748
 def join(loader, node):
 	seq = loader.construct_sequence(node)
-	return ''.join([str(i) for i in seq])
+	return "".join([str(i) for i in seq])
+
 
 # register the tag handler
-yaml.add_constructor('!join', join)
+yaml.add_constructor("!join", join)
 
 # define a custom `Config` type
 Config = Dict[str, Any]
 
+
 class FrontmatterKeys:
 	"""read-only class of special frontmatter keys"""
-	index : str = "__index__"
-	index_sort_key : str = "__index_sort_key__"
-	index_sort_reverse : str = "__index_sort_reverse__"
-	pandoc : str = "__pandoc__"
-	filename : str = "__filename__"
-	children : str = "__children__"
+
+	index: str = "__index__"
+	index_sort_key: str = "__index_sort_key__"
+	index_sort_reverse: str = "__index_sort_reverse__"
+	pandoc: str = "__pandoc__"
+	filename: str = "__filename__"
+	children: str = "__children__"
 
 	def __init__(self):
 		raise Exception("FrontmatterKeys is a read-only class")
-	
-	def __setattr__(self, name : str, value : Any) -> None:
+
+	def __setattr__(self, name: str, value: Any) -> None:
 		raise Exception("FrontmatterKeys is a read-only class")
 
 
 # define a default config
-DEFAULT_CONFIG : Config = {
-	FrontmatterKeys.pandoc : { 'email-obfuscation' : 'references' },
-	'content' : None,
-	'generated_index_suffix' : '._index.md',
-	'make_index_files' : True,
-	'mustache_rerender' : True,
-	'public' : None,
-	'resources' : None,
-	'default_frontmatter' : {
-		FrontmatterKeys.index_sort_key : 'title',
-		FrontmatterKeys.index_sort_reverse : False,
-	}
+DEFAULT_CONFIG: Config = {
+	FrontmatterKeys.pandoc: {"email-obfuscation": "references"},
+	"content": None,
+	"generated_index_suffix": "._index.md",
+	"make_index_files": True,
+	"mustache_rerender": True,
+	"public": None,
+	"resources": None,
+	"default_frontmatter": {
+		FrontmatterKeys.index_sort_key: "title",
+		FrontmatterKeys.index_sort_reverse: False,
+	},
 }
 
 
 class PandocMarkdown(object):
 	"""handles pandoc-flavored markdown and frontmatter"""
+
 	def __init__(
-			self, 
-			delim : str = '---',
-			loader : Callable[[str],Dict] = yaml.safe_load,
-			writer : Callable[[Dict],str] = lambda x : yaml.dump(x, default_flow_style = None, sort_keys = False),
-		) -> None:
-		
-		self.delim : str = delim
-		self.loader : Callable[[str],Dict] = loader
-		self.writer : Callable[[Dict],str] = writer
+		self,
+		delim: str = "---",
+		loader: Callable[[str], Dict] = yaml.safe_load,
+		writer: Callable[[Dict], str] = lambda x: yaml.dump(
+			x, default_flow_style=None, sort_keys=False
+		),
+	) -> None:
 
-		self.initialized : bool = False
+		self.delim: str = delim
+		self.loader: Callable[[str], Dict] = loader
+		self.writer: Callable[[Dict], str] = writer
+
+		self.initialized: bool = False
 		# get the first section and parse as yaml
-		self.frontmatter : Dict[str, Any] = dict()
+		self.frontmatter: Dict[str, Any] = dict()
 		# get the content
-		self.content : str = ''
+		self.content: str = ""
 
-	def load_file(self, filename : Path) -> None:
+	def load_file(self, filename: Path) -> None:
 		"""load a file into the pandoc markdown object
-		
+
 		### Parameters:
-		 - `filename : Path`   
+		 - `filename : Path`
 		   the filename to load
 		"""
 
-		with open(filename, "r", encoding = "utf-8") as f:
+		with open(filename, "r", encoding="utf-8") as f:
 			# split the document by yaml file front matter
-			sections : List[str] = f.read().split(self.delim)
+			sections: List[str] = f.read().split(self.delim)
 
 		# check the zeroth section is empty
 		if sections[0].strip():
-			raise ValueError(f"file does not start with yaml front matter, found at start of file: {sections[0]}")
-		
+			raise ValueError(
+				f"file does not start with yaml front matter, found at start of file: {sections[0]}"
+			)
+
 		if len(sections) < 3:
-			raise ValueError(f'missing sections in file {filename}, check delims')
+			raise ValueError(f"missing sections in file {filename}, check delims")
 
 		# get the first section and parse as yaml
 		self.frontmatter = self.loader(sections[1])
@@ -227,32 +235,33 @@ class PandocMarkdown(object):
 		self.initialized = True
 
 	@staticmethod
-	def create_from_file(filename : Path, **kwargs) -> 'PandocMarkdown':
-		pmd : PandocMarkdown = PandocMarkdown(**kwargs)
+	def create_from_file(filename: Path, **kwargs) -> "PandocMarkdown":
+		pmd: PandocMarkdown = PandocMarkdown(**kwargs)
 		pmd.load_file(filename)
 		return pmd
 
 	def dumps(self) -> str:
 		if (self.frontmatter is None) or (self.content is None):
-			raise Exception('')
+			raise Exception("")
 
-		return '\n'.join([
+		return "\n".join([
 			self.delim,
 			self.writer(self.frontmatter).strip(),
 			self.delim,
 			self.content.lstrip(),
 		])
 
+
 def gen_cmd(
-		plain_path : Path, 
-		plain_path_out : Optional[Path],
-		CFG : Config,
-		frontmatter : Dict[str, Any],
-	) -> Tuple[List[str],Path]:
+	plain_path: Path,
+	plain_path_out: Optional[Path],
+	CFG: Config,
+	frontmatter: Dict[str, Any],
+) -> Tuple[List[str], Path]:
 	"""generate the command to run pandoc
-	
+
 	### Returns: `Tuple[List[str],Path]`
-	 - `List[str]` 
+	 - `List[str]`
 	   command to run pandoc
 	 - `Path`
 	   the path to the output file
@@ -261,188 +270,196 @@ def gen_cmd(
 	if plain_path_out is None:
 		plain_path_out = plain_path
 	# create the output path
-	out_path : Path = Path(CFG['public']) / Path(f'{plain_path_out}.html')
+	out_path: Path = Path(CFG["public"]) / Path(f"{plain_path_out}.html")
 
 	# get the pandoc args from *both* the CFG, but override with frontmatter
-	pandoc_args : Dict[str,str] = {
-		**CFG['__pandoc__'],
+	pandoc_args: Dict[str, str] = {
+		**CFG["__pandoc__"],
 		**(frontmatter.get(FrontmatterKeys.pandoc, dict())),
 	}
 	# remove entries that map to 'None'
-	pandoc_args = {
-		k : v 
-		for k,v in pandoc_args.items() 
-		if v is not None
-	}
+	pandoc_args = {k: v for k, v in pandoc_args.items() if v is not None}
 
 	# construct the base command with inputs, outputs, and paths
-	md_doc_path : Path = Path(CFG['content']) / Path(f'{plain_path}.md')
+	md_doc_path: Path = Path(CFG["content"]) / Path(f"{plain_path}.md")
 
-	base_cmd : List[str] = [
-		'pandoc',
-		'--mathjax',
-		'-f', 'markdown',
-		'-t', 'html5',
-		'-o', str(out_path),
+	base_cmd: List[str] = [
+		"pandoc",
+		"--mathjax",
+		"-f", "markdown",
+		"-t", "html5",
+		"-o", str(out_path),
 		str(md_doc_path),
 	]
 
 	# add the pandoc args
-	for k,v in pandoc_args.items():
+	for k, v in pandoc_args.items():
 		if isinstance(v, bool):
 			if v:
-				base_cmd.append(f'--{k}')
+				base_cmd.append(f"--{k}")
 		elif isinstance(v, str):
-			base_cmd.extend([f'--{k}', v])
+			base_cmd.extend([f"--{k}", v])
 		elif isinstance(v, Iterable):
 			for x in v:
-				base_cmd.extend([f'--{k}', x])
+				base_cmd.extend([f"--{k}", x])
 		else:
-			base_cmd.extend([f'--{k}', v])
+			base_cmd.extend([f"--{k}", v])
 
 	return base_cmd, out_path
 
 
-def get_plain_path(fname : Path, CFG : Config) -> Path:
+def get_plain_path(fname: Path, CFG: Config) -> Path:
 	"""get the plain path from a filename"""
 
-	return Path(str(fname).removesuffix('.md')).relative_to(CFG['content'])
+	return Path(str(fname).removesuffix(".md")).relative_to(CFG["content"])
 
 
-def add_tag_page(path_original : Path, CFG : Config) -> Path:
+def add_tag_page(path_original: Path, CFG: Config) -> Path:
 	"""add a page which lists all pages with a given tag"""
 
 	raise NotImplementedError()
+
 
 def gen_RSS_file():
 	raise NotImplementedError()
 
 
-def add_index_page(path_original : Path, CFG : Config) -> Path:
+def add_index_page(path_original: Path, CFG: Config) -> Path:
 	"""process an index page from `path_original` and return the new path
-	
+
 	new path depends on `CFG['generated_index_suffix']`
 
 	TODO: this will only work for things organized by dotlists, not nested folders
 	"""
 	# create the new path
-	path_new : Path = Path(str(path_original).removesuffix('.md') + CFG['generated_index_suffix'])
-	
+	path_new: Path = Path(
+		str(path_original).removesuffix(".md") + CFG["generated_index_suffix"]
+	)
+
 	# read the existing document
-	doc : PandocMarkdown = PandocMarkdown.create_from_file(path_original)
+	doc: PandocMarkdown = PandocMarkdown.create_from_file(path_original)
 
 	# if we use a template from a file, append that template to the end of the content
-	if 'template_file' in doc.frontmatter:
-		with open(doc.frontmatter['template_file'], 'r') as f:
+	if "template_file" in doc.frontmatter:
+		with open(doc.frontmatter["template_file"], "r") as f:
 			doc.content += f.read()
 
 	# read the frontmatter of all downstream files (recursively)
 
 	# ignore auto-generated pages, as well as the current page
-	downstream_pages : List[Path] = [
+	downstream_pages: List[Path] = [
 		p
-		for p in path_original.parent.glob(f'{path_original.stem}*') 
+		for p in path_original.parent.glob(f"{path_original.stem}*")
 		if (
-			(not p.name.endswith(CFG['generated_index_suffix']))
+			(not p.name.endswith(CFG["generated_index_suffix"]))
 			and (p.name != path_original.name)
 		)
 	]
-	
+
 	# read the frontmatter for each file
-	downstream_frontmatter : List[Dict[str,Any]] = list()
+	downstream_frontmatter: List[Dict[str, Any]] = list()
 	for downstream_path in downstream_pages:
 		# read the frontmatter
-		fm_temp : Dict[str,Any] = PandocMarkdown.create_from_file(downstream_path).frontmatter
+		fm_temp: Dict[str, Any] = PandocMarkdown.create_from_file(
+			downstream_path
+		).frontmatter
 		# add the filename relative to the `content` directory
-		fm_temp[FrontmatterKeys.filename] = get_plain_path(downstream_path, CFG).name + '.html'
+		fm_temp[FrontmatterKeys.filename] = (
+			get_plain_path(downstream_path, CFG).name + ".html"
+		)
 
 		downstream_frontmatter.append(fm_temp)
 
 	# figure out how we should sort the downstream pages
-	sort_key : str = doc.frontmatter.get(
-		FrontmatterKeys.index_sort_key, 
-		DEFAULT_CONFIG['default_frontmatter'][FrontmatterKeys.index_sort_key],
+	sort_key: str = doc.frontmatter.get(
+		FrontmatterKeys.index_sort_key,
+		DEFAULT_CONFIG["default_frontmatter"][FrontmatterKeys.index_sort_key],
 	)
-	sort_reverse : bool = doc.frontmatter.get(
+	sort_reverse: bool = doc.frontmatter.get(
 		FrontmatterKeys.index_sort_reverse,
-		DEFAULT_CONFIG['default_frontmatter'][FrontmatterKeys.index_sort_reverse],
+		DEFAULT_CONFIG["default_frontmatter"][FrontmatterKeys.index_sort_reverse],
 	)
 
 	# sort the paths according to the frontmatter
 	downstream_frontmatter.sort(
-		key = lambda x: x.get(sort_key, ''),
-		reverse = sort_reverse,
+		key=lambda x: x.get(sort_key, ""),
+		reverse=sort_reverse,
 	)
 
 	# plug the frontmatter into the content using chevron
-	new_content : str = (
-		'\n\n<!-- THIS IS AN AUTOMATICALLY GENERATED PAGE, CHANGES WILL BE OVERWRITTEN -->\n\n'
-		+ chevron.render(doc.content, { FrontmatterKeys.children : downstream_frontmatter })
+	new_content: str = (
+		"\n\n<!-- THIS IS AN AUTOMATICALLY GENERATED PAGE, CHANGES WILL BE OVERWRITTEN -->\n\n"
+		+ chevron.render(
+			doc.content, {FrontmatterKeys.children: downstream_frontmatter}
+		)
 	)
 
 	# write the new content
 	doc.content = new_content
-	with open(path_new, 'w') as f:
+	with open(path_new, "w") as f:
 		f.write(doc.dumps())
 
 	# return the path of the written file so we know where to find it
 	return path_new
 
 
-
-
-def gen_page(md_path : Path, CFG : Config) -> None:
+def gen_page(md_path: Path, CFG: Config) -> None:
 	"""generate a single page, putting it in the public directory"""
 	# get the original file
 	if not os.path.isfile(md_path):
 		raise FileNotFoundError(f"{md_path} is not a valid source file")
-	
-	plain_path : Path = get_plain_path(md_path, CFG)
-	plain_path_out : Path = plain_path
+
+	plain_path: Path = get_plain_path(md_path, CFG)
+	plain_path_out: Path = plain_path
 	# TODO
-	is_index_page : bool = False
-	doc : PandocMarkdown = PandocMarkdown.create_from_file(md_path)
+	is_index_page: bool = False
+	doc: PandocMarkdown = PandocMarkdown.create_from_file(md_path)
 
 	# TODO: allow for custom specification of after/before/header in frontmatter
-	
+
 	# if it is a special index file, generate the index page
 	# NOTE: when we have an index page, we dymanically generate a sub-index page in markdown,
-	#       but only generate the html using that sub-index page
-	if CFG['make_index_files']:
-		if (FrontmatterKeys.index in doc.frontmatter) and (doc.frontmatter[FrontmatterKeys.index]):
-			gen_idx_path : Path = add_index_page(md_path, CFG)
+	#	   but only generate the html using that sub-index page
+	if CFG["make_index_files"]:
+		if (FrontmatterKeys.index in doc.frontmatter) and (
+			doc.frontmatter[FrontmatterKeys.index]
+		):
+			gen_idx_path: Path = add_index_page(md_path, CFG)
 			plain_path = get_plain_path(gen_idx_path, CFG)
 			is_index_page = True
 
 	# construct and run the command
 	print(f"\t{plain_path}")
 	cmd, out_path = gen_cmd(
-		plain_path = plain_path, 
-		plain_path_out = plain_path_out,
-		CFG = CFG,
-		frontmatter = doc.frontmatter,
+		plain_path=plain_path,
+		plain_path_out=plain_path_out,
+		CFG=CFG,
+		frontmatter=doc.frontmatter,
 	)
 
 	p_out = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	if p_out.returncode != 0:
-		raise RuntimeError(f"Failed to generate {plain_path}:\n\n{p_out.stderr.decode('utf-8')}")
+		raise RuntimeError(
+			f"Failed to generate {plain_path}:\n\n{p_out.stderr.decode('utf-8')}"
+		)
 
 	# rerender the page
-	if CFG['mustache_rerender']:
-		with open(out_path, 'r') as f:
-			content : str = f.read()
-		content_new : str = chevron.render(
-			content, 
-			{**doc.frontmatter, FrontmatterKeys.filename : out_path.name},
+	if CFG["mustache_rerender"]:
+		with open(out_path, "r") as f:
+			content: str = f.read()
+		content_new: str = chevron.render(
+			content,
+			{**doc.frontmatter, FrontmatterKeys.filename: out_path.name},
 		)
-		with open(out_path, 'w') as f:
+		with open(out_path, "w") as f:
 			f.write(content_new)
-	
+
 	# if an index page, delete the auto-generated index page
 	if is_index_page:
 		os.remove(gen_idx_path)
 
-def gen_all_pages(CFG : Config) -> None:
+
+def gen_all_pages(CFG: Config) -> None:
 	# create all required directories first
 	# REVIEW: is this needed?
 	# for content_dir in Path(CFG['content']).glob('*'):
@@ -455,47 +472,47 @@ def gen_all_pages(CFG : Config) -> None:
 	# generate all pages
 
 	# read all content files
-	content_files : Iterable[Path] = list(Path(CFG['content']).glob('**/*.md'))
-	
+	content_files: Iterable[Path] = list(Path(CFG["content"]).glob("**/*.md"))
+
 	# ignore dynamically generated ones
 	content_files = [
-		x 
-		for x in content_files 
-		if not x.name.endswith(CFG['generated_index_suffix'])
+		x for x in content_files if not x.name.endswith(CFG["generated_index_suffix"])
 	]
-	
+
 	# generate
-	print(f"# Generating {len(content_files)} pages:\n\t{[str(x) for x in content_files]}")
-	print('=' * 50)
+	print(
+		f"# Generating {len(content_files)} pages:\n\t{[str(x) for x in content_files]}"
+	)
+	print("=" * 50)
 	for md_path in content_files:
 		gen_page(md_path, CFG)
 
 
-def process_single(CFG : Config):
+def process_single(CFG: Config):
 	"""only for testing purposes"""
 	raise NotImplementedError()
-	fname : str = sys.argv[1].removesuffix('.md')
+	fname: str = sys.argv[1].removesuffix(".md")
 	cmd, _ = gen_cmd(fname, None, CFG)
-	print(' '.join(cmd))
+	print(" ".join(cmd))
 
 	out = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	
-	print(out.stderr.decode('utf-8'))
+
+	print(out.stderr.decode("utf-8"))
 
 
-def main(argv : List[str]) -> None:
-	
+def main(argv: List[str]) -> None:
+
 	# load the config file
 	if len(argv) != 2:
 		raise RuntimeError("Usage: python gen.py <config_path>")
 
-	config_file : str = argv[1]
-	CFG : Config = yaml.full_load(open(config_file, 'r'))
+	config_file: str = argv[1]
+	CFG: Config = yaml.full_load(open(config_file, "r"))
 
 	print(f"# Using config file '{config_file}', loaded data:")
-	print('-'*3)
+	print("-" * 3)
 	print(yaml.dump(CFG, default_flow_style=False, indent=2))
-	print('-'*3)
+	print("-" * 3)
 
 	# change the path to the location of the config file, since paths are relative to it
 	# only change the dir if we are not already in the correct dir
@@ -503,24 +520,28 @@ def main(argv : List[str]) -> None:
 		os.chdir(os.path.dirname(config_file))
 
 	# check the `<content>` directory exists
-	if not os.path.isdir(CFG['content']):
-		raise FileNotFoundError(f"{CFG['content']} is not a valid directory -- should have markdown files in it")
-	if not os.path.isdir(CFG['resources']):
-		raise FileNotFoundError(f"{CFG['resources']} is not a valid directory -- should have find resources in it")
+	if not os.path.isdir(CFG["content"]):
+		raise FileNotFoundError(
+			f"{CFG['content']} is not a valid directory -- should have markdown files in it"
+		)
+	if not os.path.isdir(CFG["resources"]):
+		raise FileNotFoundError(
+			f"{CFG['resources']} is not a valid directory -- should have find resources in it"
+		)
 
 	# create the `<public>` directory, if it doesn't exist
-	if not os.path.isdir(CFG['public']):
-		os.mkdir(CFG['public'])
+	if not os.path.isdir(CFG["public"]):
+		os.mkdir(CFG["public"])
 
 	# copy everything from the `<content>/<resources>` directory to the `<public>/<resources>` directory
-	resource_dir_src : Path = Path(CFG['resources']).relative_to(Path(CFG['content']))
-	resource_dir_dst : str = str(Path(CFG['public']) / resource_dir_src)
+	resource_dir_src: Path = Path(CFG["resources"]).relative_to(Path(CFG["content"]))
+	resource_dir_dst: str = str(Path(CFG["public"]) / resource_dir_src)
 
 	if not os.path.isdir(resource_dir_dst):
 		os.mkdir(resource_dir_dst)
-	
+
 	print(f"# Copying resources from {CFG['resources']} to {resource_dir_dst}")
-	copy_tree(CFG['resources'], resource_dir_dst)
+	copy_tree(CFG["resources"], resource_dir_dst)
 
 	# generate all pages
 	gen_all_pages(CFG)
