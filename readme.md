@@ -110,6 +110,20 @@ you will need:
 
 the script is otherwise standalone. Clone the git repo if you'd like, or just download the file somewhere.
 
+
+# Roadmap
+
+Every feature I originally intended for `pandoc-sitegen` has been added, but I'm not fundamentally opposed to more features. pull requests are welcome. Some possible future features I might eventually add:
+
+- [ ] inheriting pandoc args/config from parent items (mostly for styling different parts of a site differently)
+- [ ] special items from files passed to chevron, for more flexibility with respect to navbars, footers, or other repeated items
+  - this would take the form of `{{shared_text.<item_name>}}`, where `shared_text/item_name` is a text file which contain either text or JSON
+- [ ] auto-generate tag pages
+- [ ] generation of RSS files
+
+I'd like to keep this project as a single-file script of pure python with minimal dependencies, for simplicity and portability.
+
+
 # similar tools/resources:
 
 - https://github.com/brianbuccola/brianbuccola.github.io

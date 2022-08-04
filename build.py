@@ -149,7 +149,6 @@ yaml.add_constructor('!join', join)
 # define a custom `Config` type
 Config = Dict[str, Any]
 
-
 class FrontmatterKeys:
 	"""read-only class of special frontmatter keys"""
 	index : str = "__index__"
@@ -309,6 +308,16 @@ def get_plain_path(fname : Path, CFG : Config) -> Path:
 
 	return Path(str(fname).removesuffix('.md')).relative_to(CFG['content'])
 
+
+def add_tag_page(path_original : Path, CFG : Config) -> Path:
+	"""add a page which lists all pages with a given tag"""
+
+	raise NotImplementedError()
+
+def gen_RSS_file():
+	raise NotImplementedError()
+
+
 def add_index_page(path_original : Path, CFG : Config) -> Path:
 	"""process an index page from `path_original` and return the new path
 	
@@ -327,7 +336,7 @@ def add_index_page(path_original : Path, CFG : Config) -> Path:
 		with open(doc.frontmatter['template_file'], 'r') as f:
 			doc.content += f.read()
 
-	# read the frontmatter of all downstream files
+	# read the frontmatter of all downstream files (recursively)
 
 	# ignore auto-generated pages, as well as the current page
 	downstream_pages : List[Path] = [
