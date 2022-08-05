@@ -173,15 +173,21 @@
 </header>
 <!-- THIS IS AN AUTOMATICALLY GENERATED PAGE, CHANGES WILL BE OVERWRITTEN -->
 <p><strong>Here are all the projects:</strong></p>
-<ul>
-<li><a href="projects.dendron-pandoc.html"><strong><code>dendron-pandoc</code></strong></a><br />
-<em>some utilities for helping dendron work better with pandoc</em><br />
-status: work in progress!<br />
+<ul id="shuffleme">
+<li>
+<a href="projects.dendron-pandoc.html"><b>dendron-pandoc</b></a> <em>some utilities for helping dendron work better with pandoc</em><br />
+<br/> status: work in progress!
 </li>
-<li><a href="projects.pandoc-sitegen.html"><strong><code>pandoc-sitegen</code></strong></a><br />
-<em>A simple, fast, and flexible static site generator that uses pandoc and mustache</em><br />
-status: work in progress!</li>
+<li>
+<a href="projects.pandoc-sitegen.html"><b>pandoc-sitegen</b></a> <em>A simple, fast, and flexible static site generator that uses pandoc and mustache</em><br />
+<br/> status: work in progress (but good enough to make the site youre looking at)
+</li>
 </ul>
+<script>
+  var ul = document.querySelector('ul#shuffleme');
+  for (var i = ul.children.length; i >= 0; i--) {ul.appendChild(ul.children[Math.random() * i | 0]);}
+</script>
+<p>If you refresh, the projects will be shuffled! this is done via including a script from the globals (with triple braces, to avoid html escaping).</p>
 <p>Note that we have a custom <code>status</code> field in the project metadata. When using mustache, you can reference any item that appears in the frontmatter of the child file. Even if the element is missing, you should just get a blank.</p>
 <footer>
 	generated using <a href="https://github.com/mivanit/pandoc-sitegen">pandoc-sitegen</a>

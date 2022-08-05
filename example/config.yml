@@ -7,6 +7,10 @@ content: &CONTENT_DIR "./content/"
 public: &PUBLIC_DIR "./../docs/"
 # referenced only in this yaml file, for now
 resources: &RESOURCES_DIR !join [*CONTENT_DIR, "resources/"]
+globals_path: null
+globals_data:
+  shuffle_script: "<script>\n  var ul = document.querySelector('ul#shuffleme');\n  for (var i = ul.children.length;\
+    \ i >= 0; i--) {ul.appendChild(ul.children[Math.random() * i | 0]);}\n</script>"
 
 # other things
 # ==============================

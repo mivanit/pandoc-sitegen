@@ -1,5 +1,5 @@
 ---
-title: "`dendron-pandoc`"
+title: "dendron-pandoc"
 description: some utilities for helping dendron work better with pandoc
 status: work in progress!
 ---
