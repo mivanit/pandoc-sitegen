@@ -143,6 +143,7 @@
     div.column{display: inline-block; vertical-align: top; width: 50%;}
     div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
     ul.task-list{list-style: none;}
+    q { quotes: "“" "”" "‘" "’"; }
     pre > code.sourceCode { white-space: pre; position: relative; }
     pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
     pre > code.sourceCode > span:empty { height: 1.2em; }
@@ -214,6 +215,10 @@
   <link rel="stylesheet" href="./resources/css/default.css">
   <link rel="stylesheet" href="./resources/css/syntax.css">
 
+  <style type="text/css">
+  	q { quotes: "“" "”" "‘" "’"; }
+  </style>
+
   <!-- MathJax -->
   <!-- <script type="text/javascript" async
   	src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-MML-AM_CHTML">
@@ -230,8 +235,10 @@
 <li><a href="#excluding-includes">excluding includes</a></li>
 <li><a href="#adding-a-table-of-contents">adding a table of contents</a></li>
 <li><a href="#adding-a-csv-code-table">adding a csv code table</a></li>
+<li><a href="#referencing-globals">referencing globals</a></li>
 </ul>
 </nav>
+<p>special frontmatter features</p>
 <h1 id="excluding-includes">excluding includes</h1>
 <p>Note that this page is missing the nav bar! we did this by adding to the frontmatter:</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">__pandoc__</span><span class="kw">:</span></span>
@@ -267,6 +274,70 @@
 <td style="text-align: left;">oranges</td>
 <td style="text-align: center;">12</td>
 <td style="text-align: right;">2.22</td>
+</tr>
+</tbody>
+</table>
+<h1 id="referencing-globals">referencing globals</h1>
+<p>we can reference <q>globals</q> – data from the config file, by having our template look like</p>
+<pre><code>(( __globals__.&lt;thing&gt; ))</code></pre>
+<blockquote>
+<p>note that I’m using <code>((</code> and <code>))</code> in place of double curly braces <code>{``{</code> since those are escaped by mustache.</p>
+</blockquote>
+<p>So, we can see that:</p>
+<table>
+<thead>
+<tr class="header">
+<th>global key</th>
+<th>value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>content</code></td>
+<td><code>./content/</code></td>
+</tr>
+<tr class="even">
+<td><code>public</code></td>
+<td><code>./../docs/</code></td>
+</tr>
+<tr class="odd">
+<td><code>resources</code></td>
+<td><code>./content/resources/</code></td>
+</tr>
+<tr class="even">
+<td><code>globals_key</code></td>
+<td><code>__globals__</code></td>
+</tr>
+<tr class="odd">
+<td><code>extras_path</code></td>
+<td><code></code></td>
+</tr>
+<tr class="even">
+<td><code>extras_data</code></td>
+<td><code>{'shuffle_script': &quot;&lt;script&gt;\n  var ul = document.querySelector('ul#shuffleme');\n  for (var i = ul.children.length; i &gt;= 0; i--) {ul.appendChild(ul.children[Math.random() * i | 0]);}\n&lt;/script&gt;&quot;}</code></td>
+</tr>
+<tr class="odd">
+<td><code>make_index_files</code></td>
+<td><code>True</code></td>
+</tr>
+<tr class="even">
+<td><code>generated_index_suffix</code></td>
+<td><code>._index.md</code></td>
+</tr>
+<tr class="odd">
+<td><code>mustache_rerender</code></td>
+<td><code>True</code></td>
+</tr>
+<tr class="even">
+<td><code>__pandoc__</code></td>
+<td><code>{'include-in-header': './content/resources/header.html', 'include-before-body': './content/resources/before-body.html', 'include-after-body': './content/resources/after-body.html', 'filter': ['../filters/links_md2html.py'], 'email-obfuscation': 'references', 'html-q-tags': True}</code></td>
+</tr>
+<tr class="odd">
+<td><code>extras_data.shuffle_script</code></td>
+<td><code>&lt;script&gt;
+  var ul = document.querySelector('ul#shuffleme');
+  for (var i = ul.children.length; i &gt;= 0; i--) {ul.appendChild(ul.children[Math.random() * i | 0]);}
+&lt;/script&gt;</code></td>
 </tr>
 </tbody>
 </table>

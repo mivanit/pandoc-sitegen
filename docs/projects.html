@@ -151,6 +151,10 @@
   <link rel="stylesheet" href="./resources/css/default.css">
   <link rel="stylesheet" href="./resources/css/syntax.css">
 
+  <style type="text/css">
+  	q { quotes: "“" "”" "‘" "’"; }
+  </style>
+
   <!-- MathJax -->
   <!-- <script type="text/javascript" async
   	src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-MML-AM_CHTML">
@@ -183,10 +187,7 @@
 <br/> status: work in progress (but good enough to make the site youre looking at)
 </li>
 </ul>
-<script>
-  var ul = document.querySelector('ul#shuffleme');
-  for (var i = ul.children.length; i >= 0; i--) {ul.appendChild(ul.children[Math.random() * i | 0]);}
-</script>
+<p>{{ &lt;strong&gt;globals&lt;/strong&gt;.shuffle_script }}</p>
 <p>If you refresh, the projects will be shuffled! this is done via including a script from the globals (with triple braces, to avoid html escaping).</p>
 <p>Note that we have a custom <code>status</code> field in the project metadata. When using mustache, you can reference any item that appears in the frontmatter of the child file. Even if the element is missing, you should just get a blank.</p>
 <footer>

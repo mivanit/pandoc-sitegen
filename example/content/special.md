@@ -9,6 +9,7 @@ __pandoc__:
   - "../filters/csv_code_table.py"
 ---
 
+{{description}}
 
 # excluding includes
 
@@ -43,3 +44,33 @@ Fruit, Quantity, Price
 apples, 15, 3.24  
 oranges, 12, 2.22  
 ```
+
+
+# referencing globals
+
+we can reference "globals" -- data from the config file, by having our template look like
+
+```
+(( {{__globals__.globals_key}}.<thing> ))
+```
+
+> note that I'm using `((` and `))` in place of double curly braces `{``{` since those are escaped by mustache.
+
+So, we can see that:
+
+
+| global key               | value                                    |
+| ------------------------ | ---------------------------------------- |
+| `content`                | `{{__globals__.content}}`                |
+| `public`                 | `{{__globals__.public}}`                 |
+| `resources`              | `{{__globals__.resources}}`              |
+| `globals_key`            | `{{__globals__.globals_key}}`            |
+| `extras_path`            | `{{__globals__.extras_path}}`            |
+| `extras_data`            | `{{__globals__.extras_data}}`            |
+| `make_index_files`       | `{{__globals__.make_index_files}}`       |
+| `generated_index_suffix` | `{{__globals__.generated_index_suffix}}` |
+| `mustache_rerender`      | `{{__globals__.mustache_rerender}}`      |
+| `__pandoc__`             | `{{__globals__.__pandoc__}}`             |
+| `extras_data.shuffle_script` | `{{__globals__.extras_data.shuffle_script}}` |
+
+
