@@ -133,7 +133,8 @@ import os
 import sys
 from pathlib import Path
 from dataclasses import dataclass
-from distutils.dir_util import copy_tree
+# from distutils.dir_util import copy_tree
+from shutil import copytree
 
 import yaml
 import chevron  # type: ignore
@@ -174,14 +175,18 @@ class FrontmatterKeys:
 
 # define a default config
 DEFAULT_CONFIG: Config = {
-	FrontmatterKeys.pandoc: {"email-obfuscation": "references"},
+	FrontmatterKeys.pandoc: {
+		"email-obfuscation": "references",
+		"html-q-tags": True,
+	},
 	"content": None,
 	"generated_index_suffix": "._index.md",
 	"make_index_files": True,
 	"mustache_rerender": True,
 	"public": None,
-	"globals_path": None,
-	"globals_data": {},
+	"globals_key" : "__globals__",
+	"extras_path": None,
+	"extras_data": {},
 	"resources": None,
 	"default_frontmatter": {
 		FrontmatterKeys.index_sort_key: "title",
@@ -189,12 +194,10 @@ DEFAULT_CONFIG: Config = {
 	},
 }
 
-GLOBALS_KEY: str = "__globals__"
-
-def update_globals(config: Config) -> None:
-	"""update the globals data with mapped keys and data from `globals_path` file"""
+def update_extras(config: Config) -> None:
+	"""update the globals data with mapped keys and data from `extras_path` file"""
 	file_data: dict
-	globals_file: Optional[str] = config.get("globals_path", None)
+	globals_file: Optional[str] = config.get("extras_path", None)
 
 	# read data from file, if applicable
 	if globals_file is None:
@@ -202,7 +205,7 @@ def update_globals(config: Config) -> None:
 	elif not os.path.exists(globals_file):
 		raise FileNotFoundError(f"globals file '{globals_file}' does not exist")
 	else:
-		with open(globals_file, "r") as f:
+		with open(globals_file, "r", encoding="utf-8") as f:
 			if globals_file.endswith(".yaml") or globals_file.endswith(".yml"):
 				file_data = yaml.safe_load(f)
 			elif globals_file.endswith(".json"):
@@ -211,9 +214,9 @@ def update_globals(config: Config) -> None:
 				raise Exception(f"globals file '{globals_file}' is not a yaml or json file")
 
 	# update the config with the globals
-	config["globals_data"] = {
+	config["extras_data"] = {
 		**file_data, 
-		**config.get("globals_data", {}),
+		**config.get("extras_data", {}),
 	}
 
 class PandocMarkdown(object):
@@ -322,6 +325,7 @@ def gen_cmd(
 		**CFG["__pandoc__"],
 		**(frontmatter.get(FrontmatterKeys.pandoc, dict())),
 	}
+
 	# remove entries that map to 'None'
 	pandoc_args = {k: v for k, v in pandoc_args.items() if v is not None}
 
@@ -331,9 +335,9 @@ def gen_cmd(
 	base_cmd: List[str] = [
 		"pandoc",
 		"--mathjax",
-		"-f", "markdown",
-		"-t", "html5",
-		"-o", str(out_path),
+		"--from", "markdown+smart",
+		"--to", "html5",
+		"--output", str(out_path),
 		str(md_doc_path),
 	]
 
@@ -386,7 +390,7 @@ def add_index_page(path_original: Path, CFG: Config) -> Path:
 
 	# if we use a template from a file, append that template to the end of the content
 	if "template_file" in doc.frontmatter:
-		with open(doc.frontmatter["template_file"], "r") as f:
+		with open(doc.frontmatter["template_file"], "r", encoding="utf-8") as f:
 			doc.content += f.read()
 
 	# read the frontmatter of all downstream files (recursively)
@@ -431,7 +435,7 @@ def add_index_page(path_original: Path, CFG: Config) -> Path:
 		+ chevron.render(
 			doc.content,
 			{
-				GLOBALS_KEY: CFG["globals_data"],
+				CFG["globals_key"]: CFG,
 				FrontmatterKeys.children: downstream_frontmatter,
 			},
 			keep=True,
@@ -440,7 +444,7 @@ def add_index_page(path_original: Path, CFG: Config) -> Path:
 
 	# write the new content
 	doc.content = new_content
-	with open(path_new, "w") as f:
+	with open(path_new, "w", encoding="utf-8") as f:
 		f.write(doc.dumps())
 
 	# return the path of the written file so we know where to find it
@@ -461,7 +465,7 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 	# TODO: this isnt very clear, render it before reading as yaml?
 	doc.frontmatter = yaml.safe_load(chevron.render(
 		yaml.dump(doc.frontmatter),
-		{ GLOBALS_KEY: CFG["globals_data"] },
+		{ CFG["globals_key"]: CFG },
 		keep=True,
 	))
 
@@ -476,17 +480,6 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 			gen_idx_path: Path = add_index_page(md_path, CFG)
 			plain_path = get_plain_path(gen_idx_path, CFG)
 			is_index_page = True
-
-	if not is_index_page:
-		# render the page normally, with globals and template
-		doc.content = chevron.render(
-			doc.content,
-			{
-				**doc.frontmatter,
-				GLOBALS_KEY: CFG["globals_data"],
-			},
-			keep=True,
-		)
 
 	# construct and run the command
 	print(f"\t{plain_path}")
@@ -505,17 +498,18 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 
 	# rerender the page
 	if CFG["mustache_rerender"]:
-		with open(out_path, "r") as f:
+		with open(out_path, "r", encoding="utf-8") as f:
 			content: str = f.read()
 		content_new: str = chevron.render(
 			content,
 			{
 				**doc.frontmatter, 
+				CFG["globals_key"]: CFG,
 				FrontmatterKeys.filename: out_path.name,
 			},
 			keep=True,
 		)
-		with open(out_path, "w") as f:
+		with open(out_path, "w", encoding="utf-8") as f:
 			f.write(content_new)
 
 	# if an index page, delete the auto-generated index page
@@ -566,16 +560,26 @@ def process_single(CFG: Config):
 
 def main(argv: List[str]) -> None:
 
+	# check for help
+	if any((x in argv) for x in ["-h", "--help", "--readme", "--README"]):
+		print(__doc__)
+		exit(0)
+
+	# check if we want to print the default config
+	if "--print-cfg" in argv:
+		print(yaml.dump(DEFAULT_CONFIG))
+		exit(0)
+
 	# load the config file
 	if len(argv) != 2:
 		raise RuntimeError("Usage: python gen.py <config_path>")
 
 	config_file: str = argv[1]
 	# TODO: change current working dir to location of config file?
-	CFG: Config = yaml.full_load(open(config_file, "r"))
+	CFG: Config = yaml.full_load(open(config_file, "r", encoding="utf-8"))
 
 	# update the globals
-	update_globals(CFG)
+	update_extras(CFG)
 
 	print(f"# Using config file '{config_file}', loaded data:")
 	print("-" * 3)
@@ -609,7 +613,7 @@ def main(argv: List[str]) -> None:
 		os.mkdir(resource_dir_dst)
 
 	print(f"# Copying resources from {CFG['resources']} to {resource_dir_dst}")
-	copy_tree(CFG["resources"], resource_dir_dst)
+	copytree(CFG["resources"], resource_dir_dst, dirs_exist_ok=True)
 
 	# generate all pages
 	gen_all_pages(CFG)
