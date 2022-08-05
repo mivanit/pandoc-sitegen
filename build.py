@@ -1,18 +1,26 @@
 """pandoc-sitegen
 
-yet another site generator using pandoc
-made by github.com/mivanit
-project hosted at https://github.com/mivanit/pandoc-sitegen
-NOTE: this docstring is just a copy of the README.md
+yet another site generator using pandoc. This one lets you use the [mustache](http://mustache.github.io/mustache.5.html) templating language to do some cool magic
 
 # Usage:
 
-see the [example website](https://mivanit.github.io/pandoc-sitegen/)!
+```bash
+# prints this documentation
+python build.py --help 
+# prints the default config as yaml (without comments)
+python build.py --default-cfg
+# builds according to the config
+python build.py <config_path>
+```
+
+see the [example website](https://mivanit.github.io/pandoc-sitegen/)
 
 ## create a config file
 
 First, create a config file [example: `config.yml`](example/config.yml) with the following content:
 ```yaml
+# NOTE: `!join` is a custom directive that will add the elements of the list together. useful for concatenating strings
+
 # base directories
 # ==============================
 # NOTE: these are all relative to the location of the config file!
@@ -20,23 +28,44 @@ First, create a config file [example: `config.yml`](example/config.yml) with the
 content: &CONTENT_DIR "./content/"
 # where HTML files will be generated
 public: &PUBLIC_DIR "./../docs/"
-# referenced only in this yaml file, for now
-resources: &RESOURCES_DIR !join [*CONTENT_DIR, "resources/"]
+# referenced only in this yaml file, for now, but could be useful as a global
+resources_base: &RESOURCES_BASE "resources/"
+resources: &RESOURCES_DIR !join [*CONTENT_DIR, *RESOURCES_BASE]
+
+# global data
+# ==============================
+# under this key, individual documents can access the data in this file
+globals_key: "__globals__"
+# json or yaml from which extra data can be loaded to be globally available
+extras_path: null
+# data from the above will be merged with this data
+extras_data:
+  shuffle_script: "<script>\n  var ul = document.querySelector('ul#shuffleme');\n  for (var i = ul.children.length;\
+    \ i >= 0; i--) {ul.appendChild(ul.children[Math.random() * i | 0]);}\n</script>"
 
 # other things
 # ==============================
-make_index_files: true # whether to treat files with `__index__: true` specially
-generated_index_suffix: "._index.md" # dont worry about this, its for generating temporary files
+# whether to treat files with `index: true` specially
+make_index_files: true 
+# dont worry about this, its for generating temporary files
+generated_index_suffix: "._index.md" 
 
 # whether to give each HTML file a final pass with the mustache renderer, 
 # with the frontmatter from the markdown source passed as the context
+# you can also set this to an integer if you want to re-render the templates multiple times
 mustache_rerender: true 
+
+# use dotlist hierarchy if true, folder hierarchy if false. this will mess with relative paths in the markdown files
+dotlist_hierarchy: true
 
 # pandoc stuff
 # ==============================
 # these items will be passed as arguments to pandoc
-# note: items which are lists (e.g. `foo: [a, b, c]`) will be passed as `--foo a --foo b --foo c`
-# note: `!join` is a custom directive that will add the elements of the list together. useful for concatenating strings
+# - `foo: bar` will normally be passed as `--foo bar`
+# - items which are "None" will not be passed as an argument, useful for disabling things from the default config
+# - items which are a boolean will be passed as `--foo` if true, and not passed if false
+# - items which are lists (e.g. `foo: [a, b, c]`) will be passed as `--foo a --foo b --foo c`
+
 __pandoc__:
   include-in-header: !join [*RESOURCES_DIR, "header.html"] # passed as '--include-in-header'
   include-before-body: !join [*RESOURCES_DIR, "before-body.html"] # passed as '--include-before-body'
@@ -45,9 +74,11 @@ __pandoc__:
   # these should be paths to any pandoc filters you'd like to use. 
   # if you dont have any, just have it be an empty list
   filter: 
-	- "../filters/links_md2html.py"
+    - "../filters/links_md2html.py"
 
-  email-obfuscation: 'references'
+  email-obfuscation: 'references' # options: none|javascript|references
+
+  html-q-tags: true
 ```
 
 # writing content
@@ -60,9 +91,11 @@ blog.post1.md
 blog.post2.md
 ```
 
+or a standard folder structure, if you set `dotlist_hierarchy: false`
+
 ## index pages
 
-If we want `blog.md` to be an index page, put `index: true` in the frontmatter. The body can then contain mustache syntax 
+If we want `blog.md` to be an index page, put `__index__: true` in the frontmatter. The body can then contain mustache syntax 
 
 - files matching `blog.*.md` will have their frontmatter read, and their path added to the dictionary as `__filename__`
 - that list of dictionaries will be passed to mustache as `__children__`
@@ -72,7 +105,7 @@ So, we might have our `blog.md` file look like:
 ---
 title: Blog
 description: This is the blog index
-index: true
+__index__: true
 ---
 
 Here all all the blog posts:
@@ -107,11 +140,31 @@ this can be done from anywhere -- python will change it's working directory to t
 you will need:
 
 - Python 3.8 or later
+- [`Pandoc`](https://pandoc.org/) for rendering markdown to html. make sure it is in your path!
 - [`PyYAML`](https://pyyaml.org/), which you can install with `pip install PyYAML`
-- [`chevron`](https://github.com/noahmorrison/chevron) for rendering mustache templates, which you can install with `pip install chevron`
-- [`Pandoc`](https://pandoc.org/) for rendering markdown to html. make sure it is in your path
+- [`chevron`](https://github.com/noahmorrison/chevron) for rendering [mustache](http://mustache.github.io/mustache.5.html) templates. The version on pypi is broken, so you'll need to install from git: `pip install git+https://github.com/noahmorrison/chevron@5e1c12827b7fc3db30cb3b24cae9a7ee3092822b`
+
+you can also install via
+```bash
+pip install -r requirements.txt
+```
 
 the script is otherwise standalone. Clone the git repo if you'd like, or just download the file somewhere.
+
+
+# Roadmap
+
+Every feature I originally intended for `pandoc-sitegen` has been added, but I'm not fundamentally opposed to more features. pull requests are welcome! Some possible future features I might eventually add:
+
+- [x] allow items to reference global items from the config and external files (see [`special.md`](content/special.md) in example site)
+- [x] templating in YAML headers? (rendering with globals now applied to yaml header raw text)
+  - filter locations and other paths in header are not portable, would be good to fix this
+- [ ] inheriting pandoc args/config from parent items (mostly for styling different parts of a site differently)
+- [ ] auto-generate tag pages
+- [ ] generation of RSS files
+
+I'd like to keep this project as a single-file script of pure python with minimal dependencies, for simplicity and portability.
+
 
 # similar tools/resources:
 
@@ -122,17 +175,19 @@ the script is otherwise standalone. Clone the git repo if you'd like, or just do
 - https://github.com/lukasschwab/pandoc-blog
 - https://github.com/fcanas/bake
 
+if you end up using this script for your site and would me to list it here, email me or submit a PR :)
+
+By [Michael Ivanitskiy](mailto:mivanits@umich.edu)
+
 """
 
 
 import json
-import random
 from typing import *
 import subprocess
 import os
 import sys
 from pathlib import Path
-from dataclasses import dataclass
 # from distutils.dir_util import copy_tree
 from shutil import copytree
 
@@ -183,6 +238,7 @@ DEFAULT_CONFIG: Config = {
 	"generated_index_suffix": "._index.md",
 	"make_index_files": True,
 	"mustache_rerender": True,
+	"dotlist_hierarchy": True,
 	"public": None,
 	"globals_key" : "__globals__",
 	"extras_path": None,
@@ -396,14 +452,21 @@ def add_index_page(path_original: Path, CFG: Config) -> Path:
 	# read the frontmatter of all downstream files (recursively)
 
 	# ignore auto-generated pages, as well as the current page
+	search_glob: str = (
+		f"{path_original.stem}*" if CFG["dotlist_hierarchy"] 
+		else f"{path_original.stem}/**/*.md"
+	)
 	downstream_pages: List[Path] = [
 		p
-		for p in path_original.parent.glob(f"{path_original.stem}*")
+		for p in path_original.parent.glob(search_glob)
 		if (
 			(not p.name.endswith(CFG["generated_index_suffix"]))
-			and (p.name != path_original.name)
+			and (p.name != path_original.name) # dont include the current file
+			and (not p.is_dir())
 		)
 	]
+
+	print(f"\t   found downstream pages: ", [str(x) for x in downstream_pages])
 
 	# read the frontmatter for each file
 	downstream_frontmatter: List[Dict[str, Any]] = list()
@@ -435,8 +498,10 @@ def add_index_page(path_original: Path, CFG: Config) -> Path:
 		+ chevron.render(
 			doc.content,
 			{
-				CFG["globals_key"]: CFG,
 				FrontmatterKeys.children: downstream_frontmatter,
+				FrontmatterKeys.filename: path_new,
+				**doc.frontmatter,
+				CFG["globals_key"]: CFG,
 			},
 			keep=True,
 		)
@@ -458,6 +523,7 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 		raise FileNotFoundError(f"{md_path} is not a valid source file")
 
 	plain_path: Path = get_plain_path(md_path, CFG)
+	print(f"\t{plain_path}")
 	plain_path_out: Path = plain_path
 	is_index_page: bool = False
 	doc: PandocMarkdown = PandocMarkdown.create_from_file(md_path)
@@ -469,6 +535,8 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 		keep=True,
 	))
 
+	# make the directory if needed
+	os.makedirs(Path(CFG["public"]) / plain_path_out.parent, exist_ok=True)
 
 	# if it is a special index file, generate the index page
 	# NOTE: when we have an index page, we dymanically generate a sub-index page in markdown,
@@ -482,7 +550,6 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 			is_index_page = True
 
 	# construct and run the command
-	print(f"\t{plain_path}")
 	cmd, out_path = gen_cmd(
 		plain_path=plain_path,
 		plain_path_out=plain_path_out,
@@ -497,18 +564,23 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 		)
 
 	# rerender the page
-	if CFG["mustache_rerender"]:
+	do_rerender: Union[bool, int] = CFG["mustache_rerender"]
+	if do_rerender:
 		with open(out_path, "r", encoding="utf-8") as f:
 			content: str = f.read()
-		content_new: str = chevron.render(
-			content,
-			{
-				**doc.frontmatter, 
-				CFG["globals_key"]: CFG,
-				FrontmatterKeys.filename: out_path.name,
-			},
-			keep=True,
-		)
+		content_new: str = content
+		
+		for _ in range(do_rerender):
+			content_new = chevron.render(
+				content_new,
+				{
+					FrontmatterKeys.filename: out_path.name,
+					**doc.frontmatter, 
+					CFG["globals_key"]: CFG,
+				},
+				keep=True,
+			)
+
 		with open(out_path, "w", encoding="utf-8") as f:
 			f.write(content_new)
 
@@ -546,18 +618,6 @@ def gen_all_pages(CFG: Config) -> None:
 		gen_page(md_path, CFG)
 
 
-def process_single(CFG: Config):
-	"""only for testing purposes"""
-	raise NotImplementedError()
-	fname: str = sys.argv[1].removesuffix(".md")
-	cmd, _ = gen_cmd(fname, None, CFG)
-	print(" ".join(cmd))
-
-	out = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-	print(out.stderr.decode("utf-8"))
-
-
 def main(argv: List[str]) -> None:
 
 	# check for help
@@ -566,7 +626,7 @@ def main(argv: List[str]) -> None:
 		exit(0)
 
 	# check if we want to print the default config
-	if "--print-cfg" in argv:
+	if "--default-cfg" in argv:
 		print(yaml.dump(DEFAULT_CONFIG))
 		exit(0)
 
@@ -575,7 +635,6 @@ def main(argv: List[str]) -> None:
 		raise RuntimeError("Usage: python gen.py <config_path>")
 
 	config_file: str = argv[1]
-	# TODO: change current working dir to location of config file?
 	CFG: Config = yaml.full_load(open(config_file, "r", encoding="utf-8"))
 
 	# update the globals

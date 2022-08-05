@@ -1,3 +1,5 @@
+# NOTE: `!join` is a custom directive that will add the elements of the list together. useful for concatenating strings
+
 # base directories
 # ==============================
 # NOTE: these are all relative to the location of the config file!
@@ -5,30 +7,44 @@
 content: &CONTENT_DIR "./content/"
 # where HTML files will be generated
 public: &PUBLIC_DIR "./../docs/"
-# referenced only in this yaml file, for now
-resources: &RESOURCES_DIR !join [*CONTENT_DIR, "resources/"]
+# referenced only in this yaml file, for now, but could be useful as a global
+resources_base: &RESOURCES_BASE "resources/"
+resources: &RESOURCES_DIR !join [*CONTENT_DIR, *RESOURCES_BASE]
 
-# under this key, documents can access the data in this file
+# global data
+# ==============================
+# under this key, individual documents can access the data in this file
 globals_key: "__globals__"
+# json or yaml from which extra data can be loaded to be globally available
 extras_path: null
+# data from the above will be merged with this data
 extras_data:
   shuffle_script: "<script>\n  var ul = document.querySelector('ul#shuffleme');\n  for (var i = ul.children.length;\
     \ i >= 0; i--) {ul.appendChild(ul.children[Math.random() * i | 0]);}\n</script>"
 
 # other things
 # ==============================
-make_index_files: true # whether to treat files with `index: true` specially
-generated_index_suffix: "._index.md" # dont worry about this, its for generating temporary files
+# whether to treat files with `index: true` specially
+make_index_files: true 
+# dont worry about this, its for generating temporary files
+generated_index_suffix: "._index.md" 
 
 # whether to give each HTML file a final pass with the mustache renderer, 
 # with the frontmatter from the markdown source passed as the context
+# you can also set this to an integer if you want to re-render the templates multiple times
 mustache_rerender: true 
+
+# use dotlist hierarchy if true, folder hierarchy if false. this will mess with relative paths in the markdown files
+dotlist_hierarchy: true
 
 # pandoc stuff
 # ==============================
 # these items will be passed as arguments to pandoc
-# note: items which are lists (e.g. `foo: [a, b, c]`) will be passed as `--foo a --foo b --foo c`
-# note: `!join` is a custom directive that will add the elements of the list together. useful for concatenating strings
+# - `foo: bar` will normally be passed as `--foo bar`
+# - items which are "None" will not be passed as an argument, useful for disabling things from the default config
+# - items which are a boolean will be passed as `--foo` if true, and not passed if false
+# - items which are lists (e.g. `foo: [a, b, c]`) will be passed as `--foo a --foo b --foo c`
+
 __pandoc__:
   include-in-header: !join [*RESOURCES_DIR, "header.html"] # passed as '--include-in-header'
   include-before-body: !join [*RESOURCES_DIR, "before-body.html"] # passed as '--include-before-body'
@@ -39,6 +55,6 @@ __pandoc__:
   filter: 
     - "../filters/links_md2html.py"
 
-  email-obfuscation: 'references'
+  email-obfuscation: 'references' # options: none|javascript|references
 
   html-q-tags: true
