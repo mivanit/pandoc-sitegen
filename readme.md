@@ -120,6 +120,8 @@ Every feature I originally intended for `pandoc-sitegen` has been added, but I'm
   - this would take the form of `{{shared_text.<item_name>}}`, where `shared_text/item_name` is a text file which contain either text or JSON
 - [ ] auto-generate tag pages
 - [ ] generation of RSS files
+- [ ] templating in YAML headers?
+  - filter locations and other paths in header are not portable, would be good to fix this
 
 I'd like to keep this project as a single-file script of pure python with minimal dependencies, for simplicity and portability.
 

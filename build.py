@@ -125,6 +125,8 @@ the script is otherwise standalone. Clone the git repo if you'd like, or just do
 """
 
 
+import json
+import random
 from typing import *
 import subprocess
 import os
@@ -135,6 +137,8 @@ from distutils.dir_util import copy_tree
 
 import yaml
 import chevron  # type: ignore
+
+# pylint: disable=dangerous-default-value
 
 # define custom tag handler for yaml
 # originally from
@@ -176,6 +180,8 @@ DEFAULT_CONFIG: Config = {
 	"make_index_files": True,
 	"mustache_rerender": True,
 	"public": None,
+	"globals_path": None,
+	"globals_data": {},
 	"resources": None,
 	"default_frontmatter": {
 		FrontmatterKeys.index_sort_key: "title",
@@ -183,6 +189,32 @@ DEFAULT_CONFIG: Config = {
 	},
 }
 
+GLOBALS_KEY: str = "__globals__"
+
+def update_globals(config: Config) -> None:
+	"""update the globals data with mapped keys and data from `globals_path` file"""
+	file_data: dict
+	globals_file: Optional[str] = config.get("globals_path", None)
+
+	# read data from file, if applicable
+	if globals_file is None:
+		file_data = {}
+	elif not os.path.exists(globals_file):
+		raise FileNotFoundError(f"globals file '{globals_file}' does not exist")
+	else:
+		with open(globals_file, "r") as f:
+			if globals_file.endswith(".yaml") or globals_file.endswith(".yml"):
+				file_data = yaml.safe_load(f)
+			elif globals_file.endswith(".json"):
+				file_data = json.load(f)
+			else:
+				raise Exception(f"globals file '{globals_file}' is not a yaml or json file")
+
+	# update the config with the globals
+	config["globals_data"] = {
+		**file_data, 
+		**config.get("globals_data", {}),
+	}
 
 class PandocMarkdown(object):
 	"""handles pandoc-flavored markdown and frontmatter"""
@@ -216,7 +248,8 @@ class PandocMarkdown(object):
 
 		with open(filename, "r", encoding="utf-8") as f:
 			# split the document by yaml file front matter
-			sections: List[str] = f.read().split(self.delim)
+			file_text: str = f.read()
+			sections: List[str] = file_text.split(self.delim)
 
 		# check the zeroth section is empty
 		if sections[0].strip():
@@ -250,6 +283,18 @@ class PandocMarkdown(object):
 			self.delim,
 			self.content.lstrip(),
 		])
+
+	def frontmatter_get(
+		self,
+		key: str, # should be a key in `FrontmatterKeys`
+		defaults: Config = DEFAULT_CONFIG,
+	) -> Any:
+		"""get a value from the frontmatter"""
+		return self.frontmatter.get(
+			key,
+			defaults["default_frontmatter"][key],
+		)
+
 
 
 def gen_cmd(
@@ -371,14 +416,8 @@ def add_index_page(path_original: Path, CFG: Config) -> Path:
 		downstream_frontmatter.append(fm_temp)
 
 	# figure out how we should sort the downstream pages
-	sort_key: str = doc.frontmatter.get(
-		FrontmatterKeys.index_sort_key,
-		DEFAULT_CONFIG["default_frontmatter"][FrontmatterKeys.index_sort_key],
-	)
-	sort_reverse: bool = doc.frontmatter.get(
-		FrontmatterKeys.index_sort_reverse,
-		DEFAULT_CONFIG["default_frontmatter"][FrontmatterKeys.index_sort_reverse],
-	)
+	sort_key: str = doc.frontmatter_get(FrontmatterKeys.index_sort_key)
+	sort_reverse: bool = doc.frontmatter_get(FrontmatterKeys.index_sort_reverse)
 
 	# sort the paths according to the frontmatter
 	downstream_frontmatter.sort(
@@ -390,7 +429,12 @@ def add_index_page(path_original: Path, CFG: Config) -> Path:
 	new_content: str = (
 		"\n\n<!-- THIS IS AN AUTOMATICALLY GENERATED PAGE, CHANGES WILL BE OVERWRITTEN -->\n\n"
 		+ chevron.render(
-			doc.content, {FrontmatterKeys.children: downstream_frontmatter}
+			doc.content,
+			{
+				GLOBALS_KEY: CFG["globals_data"],
+				FrontmatterKeys.children: downstream_frontmatter,
+			},
+			keep=True,
 		)
 	)
 
@@ -411,11 +455,16 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 
 	plain_path: Path = get_plain_path(md_path, CFG)
 	plain_path_out: Path = plain_path
-	# TODO
 	is_index_page: bool = False
 	doc: PandocMarkdown = PandocMarkdown.create_from_file(md_path)
+	# add globals to the frontmatter
+	# TODO: this isnt very clear, render it before reading as yaml?
+	doc.frontmatter = yaml.safe_load(chevron.render(
+		yaml.dump(doc.frontmatter),
+		{ GLOBALS_KEY: CFG["globals_data"] },
+		keep=True,
+	))
 
-	# TODO: allow for custom specification of after/before/header in frontmatter
 
 	# if it is a special index file, generate the index page
 	# NOTE: when we have an index page, we dymanically generate a sub-index page in markdown,
@@ -427,6 +476,17 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 			gen_idx_path: Path = add_index_page(md_path, CFG)
 			plain_path = get_plain_path(gen_idx_path, CFG)
 			is_index_page = True
+
+	if not is_index_page:
+		# render the page normally, with globals and template
+		doc.content = chevron.render(
+			doc.content,
+			{
+				**doc.frontmatter,
+				GLOBALS_KEY: CFG["globals_data"],
+			},
+			keep=True,
+		)
 
 	# construct and run the command
 	print(f"\t{plain_path}")
@@ -449,7 +509,11 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 			content: str = f.read()
 		content_new: str = chevron.render(
 			content,
-			{**doc.frontmatter, FrontmatterKeys.filename: out_path.name},
+			{
+				**doc.frontmatter, 
+				FrontmatterKeys.filename: out_path.name,
+			},
+			keep=True,
 		)
 		with open(out_path, "w") as f:
 			f.write(content_new)
@@ -507,7 +571,11 @@ def main(argv: List[str]) -> None:
 		raise RuntimeError("Usage: python gen.py <config_path>")
 
 	config_file: str = argv[1]
+	# TODO: change current working dir to location of config file?
 	CFG: Config = yaml.full_load(open(config_file, "r"))
+
+	# update the globals
+	update_globals(CFG)
 
 	print(f"# Using config file '{config_file}', loaded data:")
 	print("-" * 3)
