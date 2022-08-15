@@ -22,6 +22,9 @@ extras_data:
   shuffle_script: "<script>\n  var ul = document.querySelector('ul#shuffleme');\n  for (var i = ul.children.length;\
     \ i >= 0; i--) {ul.appendChild(ul.children[Math.random() * i | 0]);}\n</script>"
 
+# this gets merged into the frontmatter of each document (for mustache only)
+frontmatter_defaults:
+  __into_header__: ""
 # other things
 # ==============================
 # whether to treat files with `index: true` specially
@@ -33,6 +36,12 @@ generated_index_suffix: "._index.md"
 # with the frontmatter from the markdown source passed as the context
 # you can also set this to an integer if you want to re-render the templates multiple times
 mustache_rerender: true 
+
+# whether to keep track of when the site was last built
+# any file last modified prior to the saved time will not be rebuilt
+# this can be overridden by passing `--rebuild` or by deleting the file at `build_time_fname`
+smart_rebuild: true
+build_time_fname": ".build_time"
 
 # use dotlist hierarchy if true, folder hierarchy if false. this will mess with relative paths in the markdown files
 dotlist_hierarchy: true

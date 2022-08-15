@@ -43,6 +43,9 @@ extras_data:
   shuffle_script: "<script>\n  var ul = document.querySelector('ul#shuffleme');\n  for (var i = ul.children.length;\
     \ i >= 0; i--) {ul.appendChild(ul.children[Math.random() * i | 0]);}\n</script>"
 
+# this gets merged into the frontmatter of each document (for mustache only)
+frontmatter_defaults:
+  __into_header__: ""
 # other things
 # ==============================
 # whether to treat files with `index: true` specially
@@ -54,6 +57,12 @@ generated_index_suffix: "._index.md"
 # with the frontmatter from the markdown source passed as the context
 # you can also set this to an integer if you want to re-render the templates multiple times
 mustache_rerender: true 
+
+# whether to keep track of when the site was last built
+# any file last modified prior to the saved time will not be rebuilt
+# this can be overridden by passing `--rebuild` or by deleting the file at `build_time_fname`
+smart_rebuild: true
+build_time_fname": ".build_time"
 
 # use dotlist hierarchy if true, folder hierarchy if false. this will mess with relative paths in the markdown files
 dotlist_hierarchy: true
@@ -179,10 +188,12 @@ if you end up using this script for your site and would me to list it here, emai
 
 By [Michael Ivanitskiy](mailto:mivanits@umich.edu)
 
+
 """
 
 
 import json
+import time
 from typing import *
 import subprocess
 import os
@@ -209,6 +220,10 @@ yaml.add_constructor("!join", join)
 
 # define a custom `Config` type
 Config = Dict[str, Any]
+
+def unipath(path: Path) -> str:
+	"""convert any path to posix style, for printing"""
+	return str(path.as_posix())
 
 
 class FrontmatterKeys:
@@ -239,6 +254,8 @@ DEFAULT_CONFIG: Config = {
 	"make_index_files": True,
 	"mustache_rerender": True,
 	"dotlist_hierarchy": True,
+	"smart_rebuild": True,
+	"build_time_fname": ".build_time",
 	"public": None,
 	"globals_key" : "__globals__",
 	"extras_path": None,
@@ -466,7 +483,7 @@ def add_index_page(path_original: Path, CFG: Config) -> Path:
 		)
 	]
 
-	print(f"\t   found downstream pages: ", [str(x) for x in downstream_pages])
+	print(f"\t   found downstream pages: ", [unipath(x) for x in downstream_pages])
 
 	# read the frontmatter for each file
 	downstream_frontmatter: List[Dict[str, Any]] = list()
@@ -498,10 +515,11 @@ def add_index_page(path_original: Path, CFG: Config) -> Path:
 		+ chevron.render(
 			doc.content,
 			{
-				FrontmatterKeys.children: downstream_frontmatter,
-				FrontmatterKeys.filename: path_new,
+				**CFG["frontmatter_defaults"],
 				**doc.frontmatter,
 				CFG["globals_key"]: CFG,
+				FrontmatterKeys.children: downstream_frontmatter,
+				FrontmatterKeys.filename: path_new,
 			},
 			keep=True,
 		)
@@ -523,7 +541,6 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 		raise FileNotFoundError(f"{md_path} is not a valid source file")
 
 	plain_path: Path = get_plain_path(md_path, CFG)
-	print(f"\t{plain_path}")
 	plain_path_out: Path = plain_path
 	is_index_page: bool = False
 	doc: PandocMarkdown = PandocMarkdown.create_from_file(md_path)
@@ -574,9 +591,10 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 			content_new = chevron.render(
 				content_new,
 				{
-					FrontmatterKeys.filename: out_path.name,
+					**CFG["frontmatter_defaults"],
 					**doc.frontmatter, 
 					CFG["globals_key"]: CFG,
+					FrontmatterKeys.filename: out_path.name,
 				},
 				keep=True,
 			)
@@ -601,6 +619,12 @@ def gen_all_pages(CFG: Config) -> None:
 
 	# generate all pages
 
+	# get the build time
+	build_time: float = float("-inf")
+	if CFG["smart_rebuild"] and os.path.isfile(CFG["build_time_fname"]):
+		with open(CFG["build_time_fname"], "r", encoding="utf-8") as f:
+			build_time = float(f.read())
+
 	# read all content files
 	content_files: Iterable[Path] = list(Path(CFG["content"]).glob("**/*.md"))
 
@@ -608,14 +632,28 @@ def gen_all_pages(CFG: Config) -> None:
 	content_files = [
 		x for x in content_files if not x.name.endswith(CFG["generated_index_suffix"])
 	]
+	n_files: int = len(content_files)
 
 	# generate
 	print(
-		f"# Generating {len(content_files)} pages:\n\t{[str(x) for x in content_files]}"
+		f"# Generating {len(content_files)} pages:\n\t{[unipath(x) for x in content_files]}"
 	)
 	print("=" * 50)
-	for md_path in content_files:
+	for idx, md_path in enumerate(content_files):
+		plain_path: str = unipath(get_plain_path(md_path, CFG))
+
+		# skip if the file is older than the build time
+		if CFG["smart_rebuild"] and os.stat(md_path).st_mtime < build_time:
+			print(f"\t({idx+1} / {n_files})  [unmodified]  '{plain_path}'")
+			continue
+		else:
+			print(f"\t({idx+1} / {n_files})  [building..]  '{plain_path}'")
+
 		gen_page(md_path, CFG)
+
+	# write the build date
+	with open(CFG["build_time_fname"], "w", encoding="utf-8") as f:
+		f.write(str(time.time()))
 
 
 def main(argv: List[str]) -> None:
@@ -631,14 +669,23 @@ def main(argv: List[str]) -> None:
 		exit(0)
 
 	# load the config file
-	if len(argv) != 2:
-		raise RuntimeError("Usage: python gen.py <config_path>")
-
 	config_file: str = argv[1]
 	CFG: Config = yaml.full_load(open(config_file, "r", encoding="utf-8"))
 
+	# merge the config with the default config
+	CFG = {
+		**DEFAULT_CONFIG, 
+		**CFG,
+	}
+
 	# update the globals
 	update_extras(CFG)
+
+	# check for force rebuild
+	if "--rebuild" in argv:
+		CFG["smart_rebuild"] = False
+
+	# TODO: checking for unknown args
 
 	print(f"# Using config file '{config_file}', loaded data:")
 	print("-" * 3)
