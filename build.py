@@ -205,6 +205,23 @@ from shutil import copytree
 import yaml
 import chevron  # type: ignore
 
+RSS_TEMPLATE = """<rss version="0.91">
+  <channel>
+    <title>{title}</title>
+    <link>{link}</link>
+    <description>{description}</description>
+    <language>en-us</language>
+    {items}
+  </channel>
+</rss>
+"""
+
+RSS_ITEM_TEMPLATE = """<item>
+      <title>{title}</title>
+      <link>{link}</link>
+      <description>{description}</description>
+    </item>"""
+
 # pylint: disable=dangerous-default-value
 
 # define custom tag handler for yaml
@@ -527,7 +544,7 @@ def add_index_page(path_original: Path, CFG: Config) -> Path:
 		f.write(doc.dumps())
 
 	# return the path of the written file so we know where to find it
-	return path_new
+	return path_new, downstream_frontmatter
 
 
 def gen_page(md_path: Path, CFG: Config) -> None:
@@ -558,7 +575,7 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 		if (FrontmatterKeys.index in doc.frontmatter) and (
 			doc.frontmatter[FrontmatterKeys.index]
 		):
-			gen_idx_path: Path = add_index_page(md_path, CFG)
+			gen_idx_path, downstream_frontmatter = add_index_page(md_path, CFG)
 			plain_path = get_plain_path(gen_idx_path, CFG)
 			is_index_page = True
 
@@ -569,6 +586,26 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 		CFG=CFG,
 		frontmatter=doc.frontmatter,
 	)
+
+	site_link = CFG["site_link"]
+	if is_index_page:
+		rss_path = out_path.with_suffix(".rss")
+		with open(rss_path, "w") as rss_file:
+			rss_items = [
+				RSS_ITEM_TEMPLATE.format(
+					title=downstream_page["title"],
+					link=os.path.join(site_link, downstream_page[FrontmatterKeys.filename]),
+					description=downstream_page["description"],
+				) for downstream_page in downstream_frontmatter
+			]
+			rss_file.write(
+				RSS_TEMPLATE.format(
+					title=doc.frontmatter["title"],
+					link=site_link,
+					description=doc.frontmatter["description"],
+					items="\n    ".join(rss_items),
+				)
+			)
 
 	p_out = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	if p_out.returncode != 0:
