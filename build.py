@@ -470,7 +470,7 @@ def add_index_page(path_original: Path, CFG: Config) -> Path:
 
 	# ignore auto-generated pages, as well as the current page
 	search_glob: str = (
-		f"{path_original.stem}*" if CFG["dotlist_hierarchy"] 
+		f"{path_original.stem}.*" if CFG["dotlist_hierarchy"]
 		else f"{path_original.stem}/**/*.md"
 	)
 	downstream_pages: List[Path] = [
