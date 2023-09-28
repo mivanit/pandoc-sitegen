@@ -442,10 +442,6 @@ def add_tag_page(path_original: Path, CFG: Config) -> Path:
 	raise NotImplementedError()
 
 
-def gen_RSS_file():
-	raise NotImplementedError()
-
-
 def add_index_page(path_original: Path, CFG: Config) -> Path:
 	"""process an index page from `path_original` and return the new path
 
