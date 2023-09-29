@@ -282,6 +282,7 @@ DEFAULT_CONFIG: Config = {
 		FrontmatterKeys.index_sort_key: "title",
 		FrontmatterKeys.index_sort_reverse: False,
 	},
+	"site_link": None,
 }
 
 def update_extras(config: Config) -> None:

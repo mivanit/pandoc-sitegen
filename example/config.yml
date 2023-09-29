@@ -46,6 +46,8 @@ build_time_fname": ".build_time"
 # use dotlist hierarchy if true, folder hierarchy if false. this will mess with relative paths in the markdown files
 dotlist_hierarchy: true
 
+site_link: "https://mivanit.github.io/pandoc-sitegen"
+
 # pandoc stuff
 # ==============================
 # these items will be passed as arguments to pandoc
