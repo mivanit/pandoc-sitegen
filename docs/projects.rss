@@ -1,0 +1,18 @@
+<rss version="0.91">
+  <channel>
+    <title>Projects</title>
+    <link>https://mivanit.github.io/pandoc-sitegen</link>
+    <description>This is another index example</description>
+    <language>en-us</language>
+    <item>
+      <title>dendron-pandoc</title>
+      <link>https://mivanit.github.io/pandoc-sitegen/projects.dendron-pandoc.html</link>
+      <description>some utilities for helping dendron work better with pandoc</description>
+    </item>
+    <item>
+      <title>pandoc-sitegen</title>
+      <link>https://mivanit.github.io/pandoc-sitegen/projects.pandoc-sitegen.html</link>
+      <description>A simple, fast, and flexible static site generator that uses pandoc and mustache</description>
+    </item>
+  </channel>
+</rss>

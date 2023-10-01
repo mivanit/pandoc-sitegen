@@ -8,9 +8,6 @@
   <title>Special Page</title>
   <style>
     html {
-      line-height: 1.5;
-      font-family: Georgia, serif;
-      font-size: 20px;
       color: #1a1a1a;
       background-color: #fdfdfd;
     }
@@ -22,17 +19,23 @@
       padding-top: 50px;
       padding-bottom: 50px;
       hyphens: auto;
-      word-wrap: break-word;
+      overflow-wrap: break-word;
       text-rendering: optimizeLegibility;
       font-kerning: normal;
     }
     @media (max-width: 600px) {
       body {
         font-size: 0.9em;
-        padding: 1em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
       }
     }
     @media print {
+      html {
+        background-color: white;
+      }
       body {
         background-color: transparent;
         color: black;
@@ -82,9 +85,10 @@
       color: #606060;
     }
     code {
-      font-family: Menlo, Monaco, 'Lucida Console', Consolas, monospace;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
       font-size: 85%;
       margin: 0;
+      hyphens: manual;
     }
     pre {
       margin: 1em 0;
@@ -93,6 +97,7 @@
     pre code {
       padding: 0;
       overflow: visible;
+      overflow-wrap: normal;
     }
     .sourceCode {
      background-color: transparent;
@@ -134,16 +139,31 @@
     #TOC li {
       list-style: none;
     }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
     #TOC a:not(:hover) {
       text-decoration: none;
     }
     code{white-space: pre-wrap;}
     span.smallcaps{font-variant: small-caps;}
-    span.underline{text-decoration: underline;}
-    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
     div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-    ul.task-list{list-style: none;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
     q { quotes: "“" "”" "‘" "’"; }
+    /* CSS for syntax highlighting */
     pre > code.sourceCode { white-space: pre; position: relative; }
     pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
     pre > code.sourceCode > span:empty { height: 1.2em; }
@@ -182,7 +202,7 @@
     code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
     code span.at { color: #7d9029; } /* Attribute */
     code span.bn { color: #40a070; } /* BaseN */
-    code span.bu { } /* BuiltIn */
+    code span.bu { color: #008000; } /* BuiltIn */
     code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
     code span.ch { color: #4070a0; } /* Char */
     code span.cn { color: #880000; } /* Constant */
@@ -195,7 +215,7 @@
     code span.ex { } /* Extension */
     code span.fl { color: #40a070; } /* Float */
     code span.fu { color: #06287e; } /* Function */
-    code span.im { } /* Import */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
     code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
     code span.kw { color: #007020; font-weight: bold; } /* Keyword */
     code span.op { color: #666666; } /* Operator */
@@ -208,9 +228,6 @@
     code span.vs { color: #4070a0; } /* VerbatimString */
     code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
   </style>
-  <!--[if lt IE 9]>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
-  <![endif]-->
   <!-- Styling -->
   <link rel="stylesheet" href="./resources/css/default.css">
   <link rel="stylesheet" href="./resources/css/syntax.css">
@@ -225,6 +242,9 @@
   </script> -->
 
   <!-- HTML and css adapted from https://github.com/brianbuccola/brianbuccola.github.io -->
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
 </head>
 <body>
 <header id="title-block-header">
@@ -232,28 +252,40 @@
 </header>
 <nav id="TOC" role="doc-toc">
 <ul>
-<li><a href="#excluding-includes">excluding includes</a></li>
-<li><a href="#adding-a-table-of-contents">adding a table of contents</a></li>
-<li><a href="#adding-a-csv-code-table">adding a csv code table</a></li>
-<li><a href="#referencing-globals">referencing globals</a></li>
+<li><a href="#excluding-includes" id="toc-excluding-includes">excluding
+includes</a></li>
+<li><a href="#adding-a-table-of-contents"
+id="toc-adding-a-table-of-contents">adding a table of contents</a></li>
+<li><a href="#adding-a-csv-code-table"
+id="toc-adding-a-csv-code-table">adding a csv code table</a></li>
+<li><a href="#referencing-globals"
+id="toc-referencing-globals">referencing globals</a></li>
 </ul>
 </nav>
 <p>special frontmatter features</p>
 <h1 id="excluding-includes">excluding includes</h1>
-<p>Note that this page is missing the nav bar! we did this by adding to the frontmatter:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">__pandoc__</span><span class="kw">:</span></span>
+<p>Note that this page is missing the nav bar! we did this by adding to
+the frontmatter:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">__pandoc__</span><span class="kw">:</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">include-before-body</span><span class="kw">:</span><span class="at"> </span><span class="ch">null</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="at">  ...</span></span></code></pre></div>
-<p>which means that the <code>--include-before-body</code> option will not be passed to pandoc.</p>
+<p>which means that the <code>--include-before-body</code> option will
+not be passed to pandoc.</p>
 <h1 id="adding-a-table-of-contents">adding a table of contents</h1>
-<p>We have also set <code>toc: True</code> in the frontmatter (under <code>__pandoc__</code>). This will be passed as <code>--toc</code> to pandoc.</p>
+<p>We have also set <code>toc: True</code> in the frontmatter (under
+<code>__pandoc__</code>). This will be passed as <code>--toc</code> to
+pandoc.</p>
 <h1 id="adding-a-csv-code-table">adding a csv code table</h1>
-<div class="sourceCode" id="cb2"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">__pandoc__</span><span class="kw">:</span></span>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">__pandoc__</span><span class="kw">:</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">filter</span><span class="kw">:</span></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="st">&quot;../filters/links_md2html.py&quot;</span></span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="st">&quot;../filters/csv_code_table.py&quot;</span></span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="at">  ...</span></span></code></pre></div>
-<p>note that we must re-include the <code>links_md2html.py</code> filter, because specifying a filter will overwrite existing filters. But, the path is still relative to our <code>config.yml</code> file.</p>
+<p>note that we must re-include the <code>links_md2html.py</code>
+filter, because specifying a filter will overwrite existing filters.
+But, the path is still relative to our <code>config.yml</code> file.</p>
 <p>This lets us create a table:</p>
 <table>
 <caption>This is the caption</caption>
@@ -278,13 +310,20 @@
 </tbody>
 </table>
 <h1 id="referencing-globals">referencing globals</h1>
-<p>we can reference <q>globals</q> – data from the config file, by having our template look like</p>
+<p>we can reference <q>globals</q> – data from the config file, by
+having our template look like</p>
 <pre><code>(( __globals__.&lt;thing&gt; ))</code></pre>
 <blockquote>
-<p>note that I’m using <code>((</code> and <code>))</code> in place of double curly braces <code>{``{</code> since those are escaped by mustache.</p>
+<p>note that I’m using <code>((</code> and <code>))</code> in place of
+double curly braces <code>{``{</code> since those are escaped by
+mustache.</p>
 </blockquote>
 <p>So, we can see that:</p>
 <table>
+<colgroup>
+<col style="width: 37%" />
+<col style="width: 62%" />
+</colgroup>
 <thead>
 <tr class="header">
 <th>global key</th>

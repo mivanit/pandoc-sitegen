@@ -1,0 +1,18 @@
+<rss version="0.91">
+  <channel>
+    <title>Blog</title>
+    <link>https://mivanit.github.io/pandoc-sitegen</link>
+    <description>This is the blog index</description>
+    <language>en-us</language>
+    <item>
+      <title>Lorem Ipsum Post</title>
+      <link>https://mivanit.github.io/pandoc-sitegen/blog.lorem-ipsum.html</link>
+      <description>This is an example blog post</description>
+    </item>
+    <item>
+      <title>Lorem Ipsum Post, part 2</title>
+      <link>https://mivanit.github.io/pandoc-sitegen/blog.part_2.html</link>
+      <description>If Lorem Ipsum is so good, why is there no Lorem Ipsum 2?</description>
+    </item>
+  </channel>
+</rss>
