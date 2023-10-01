@@ -19,75 +19,7 @@ see the [example website](https://mivanit.github.io/pandoc-sitegen/)
 
 First, create a config file [example: `config.yml`](example/config.yml) with the following content:
 ```yaml
-# NOTE: `!join` is a custom directive that will add the elements of the list together. useful for concatenating strings
-
-# base directories
-# ==============================
-# NOTE: these are all relative to the location of the config file!
-# where the script will look for markdown files
-content: &CONTENT_DIR "./content/"
-# where HTML files will be generated
-public: &PUBLIC_DIR "./../docs/"
-# referenced only in this yaml file, for now, but could be useful as a global
-resources_base: &RESOURCES_BASE "resources/"
-resources: &RESOURCES_DIR !join [*CONTENT_DIR, *RESOURCES_BASE]
-
-# global data
-# ==============================
-# under this key, individual documents can access the data in this file
-globals_key: "__globals__"
-# json or yaml from which extra data can be loaded to be globally available
-extras_path: null
-# data from the above will be merged with this data
-extras_data:
-  shuffle_script: "<script>\n  var ul = document.querySelector('ul#shuffleme');\n  for (var i = ul.children.length;\
-    \ i >= 0; i--) {ul.appendChild(ul.children[Math.random() * i | 0]);}\n</script>"
-
-# this gets merged into the frontmatter of each document (for mustache only)
-frontmatter_defaults:
-  __into_header__: ""
-# other things
-# ==============================
-# whether to treat files with `index: true` specially
-make_index_files: true 
-# dont worry about this, its for generating temporary files
-generated_index_suffix: "._index.md" 
-
-# whether to give each HTML file a final pass with the mustache renderer, 
-# with the frontmatter from the markdown source passed as the context
-# you can also set this to an integer if you want to re-render the templates multiple times
-mustache_rerender: true 
-
-# whether to keep track of when the site was last built
-# any file last modified prior to the saved time will not be rebuilt
-# this can be overridden by passing `--rebuild` or by deleting the file at `build_time_fname`
-smart_rebuild: true
-build_time_fname": ".build_time"
-
-# use dotlist hierarchy if true, folder hierarchy if false. this will mess with relative paths in the markdown files
-dotlist_hierarchy: true
-
-# pandoc stuff
-# ==============================
-# these items will be passed as arguments to pandoc
-# - `foo: bar` will normally be passed as `--foo bar`
-# - items which are "None" will not be passed as an argument, useful for disabling things from the default config
-# - items which are a boolean will be passed as `--foo` if true, and not passed if false
-# - items which are lists (e.g. `foo: [a, b, c]`) will be passed as `--foo a --foo b --foo c`
-
-__pandoc__:
-  include-in-header: !join [*RESOURCES_DIR, "header.html"] # passed as '--include-in-header'
-  include-before-body: !join [*RESOURCES_DIR, "before-body.html"] # passed as '--include-before-body'
-  include-after-body: !join [*RESOURCES_DIR, "after-body.html"] # passed as '--include-after-body'
-
-  # these should be paths to any pandoc filters you'd like to use. 
-  # if you dont have any, just have it be an empty list
-  filter: 
-    - "../filters/links_md2html.py"
-
-  email-obfuscation: 'references' # options: none|javascript|references
-
-  html-q-tags: true
+$$DEFAULT_CONFIG_STR$$
 ```
 
 # writing content
@@ -188,7 +120,6 @@ if you end up using this script for your site and would me to list it here, emai
 
 By [Michael Ivanitskiy](mailto:mivanits@umich.edu)
 
-
 """
 
 
@@ -199,13 +130,12 @@ import subprocess
 import os
 import sys
 from pathlib import Path
-# from distutils.dir_util import copy_tree
 from shutil import copytree
 
 import yaml
 import chevron  # type: ignore
 
-RSS_TEMPLATE = """<rss version="0.91">
+RSS_TEMPLATE: str = """<rss version="0.91">
   <channel>
     <title>{title}</title>
     <link>{link}</link>
@@ -216,11 +146,85 @@ RSS_TEMPLATE = """<rss version="0.91">
 </rss>
 """
 
-RSS_ITEM_TEMPLATE = """<item>
+RSS_ITEM_TEMPLATE: str = """<item>
       <title>{title}</title>
       <link>{link}</link>
       <description>{description}</description>
     </item>"""
+
+
+DEFAULT_CONFIG_STR: str = """# NOTE: `!join` is a custom directive that will add the elements of the list together. useful for concatenating strings
+
+# base directories
+# ==============================
+# NOTE: these are all relative to the location of the config file!
+# where the script will look for markdown files
+content: &CONTENT_DIR "./content/"
+# where HTML files will be generated
+public: &PUBLIC_DIR "./../docs/"
+# referenced only in this yaml file, for now, but could be useful as a global
+resources_base: &RESOURCES_BASE "resources/"
+resources: &RESOURCES_DIR !join [*CONTENT_DIR, *RESOURCES_BASE]
+
+# global data
+# ==============================
+# under this key, individual documents can access the data in this file
+globals_key: "__globals__"
+# json or yaml from which extra data can be loaded to be globally available
+extras_path: null
+# data from the above will be merged with this data
+extras_data:
+  shuffle_script: "<script>\n  var ul = document.querySelector('ul#shuffleme');\n  for (var i = ul.children.length;\
+    \ i >= 0; i--) {ul.appendChild(ul.children[Math.random() * i | 0]);}\n</script>"
+
+# this gets merged into the frontmatter of each document (for mustache only)
+frontmatter_defaults:
+  __into_header__: ""
+# other things
+# ==============================
+# whether to treat files with `index: true` specially
+make_index_files: true 
+# dont worry about this, its for generating temporary files
+generated_index_suffix: "._index.md" 
+
+# whether to give each HTML file a final pass with the mustache renderer, 
+# with the frontmatter from the markdown source passed as the context
+# you can also set this to an integer if you want to re-render the templates multiple times
+mustache_rerender: true 
+
+# whether to keep track of when the site was last built
+# any file last modified prior to the saved time will not be rebuilt
+# this can be overridden by passing `--rebuild` or by deleting the file at `build_time_fname`
+smart_rebuild: true
+build_time_fname": ".build_time"
+
+# use dotlist hierarchy if true, folder hierarchy if false. this will mess with relative paths in the markdown files
+dotlist_hierarchy: true
+
+# pandoc stuff
+# ==============================
+# these items will be passed as arguments to pandoc
+# - `foo: bar` will normally be passed as `--foo bar`
+# - items which are "None" will not be passed as an argument, useful for disabling things from the default config
+# - items which are a boolean will be passed as `--foo` if true, and not passed if false
+# - items which are lists (e.g. `foo: [a, b, c]`) will be passed as `--foo a --foo b --foo c`
+
+__pandoc__:
+  include-in-header: !join [*RESOURCES_DIR, "header.html"] # passed as '--include-in-header'
+  include-before-body: !join [*RESOURCES_DIR, "before-body.html"] # passed as '--include-before-body'
+  include-after-body: !join [*RESOURCES_DIR, "after-body.html"] # passed as '--include-after-body'
+
+  # these should be paths to any pandoc filters you'd like to use. 
+  # if you dont have any, just have it be an empty list
+  filter: 
+    - "../filters/links_md2html.py"
+
+  email-obfuscation: 'references' # options: none|javascript|references
+
+  html-q-tags: true
+"""
+
+__doc__ = __doc__.replace("$$DEFAULT_CONFIG_STR$$", DEFAULT_CONFIG_STR)
 
 # pylint: disable=dangerous-default-value
 
