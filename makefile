@@ -6,12 +6,13 @@ update-readme:
 .PHONY: build
 build:
 	@echo "build the example site"
-	python build.py example/config.yaml
+	python build.py example/config.yml
 
 .PHONY: clean
 clean:
 	@echo "clean the example site"
 	rm -rf docs/
+	rm example/.build_time
 
 # listing targets, from stackoverflow
 # https://stackoverflow.com/questions/4219255/how-do-you-get-the-list-of-targets-in-a-makefile

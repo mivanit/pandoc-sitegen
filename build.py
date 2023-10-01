@@ -287,6 +287,7 @@ DEFAULT_CONFIG: Config = {
 		FrontmatterKeys.index_sort_reverse: False,
 	},
 	"site_link": None,
+	"make_rss": True,
 }
 
 def update_extras(config: Config) -> None:
@@ -464,7 +465,7 @@ def add_tag_page(path_original: Path, CFG: Config) -> Path:
 	raise NotImplementedError()
 
 
-def add_index_page(path_original: Path, CFG: Config) -> Path:
+def add_index_page(path_original: Path, CFG: Config) -> Tuple[Path, List[Dict[str, Any]]]:
 	"""process an index page from `path_original` and return the new path
 
 	new path depends on `CFG['generated_index_suffix']`
@@ -593,13 +594,13 @@ def gen_page(md_path: Path, CFG: Config) -> None:
 	)
 
 	site_link = CFG["site_link"]
-	if is_index_page:
+	if is_index_page and CFG["make_rss"]:
 		rss_path = out_path.with_suffix(".rss")
 		with open(rss_path, "w") as rss_file:
 			rss_items = [
 				RSS_ITEM_TEMPLATE.format(
 					title=downstream_page["title"],
-					link=os.path.join(site_link, downstream_page[FrontmatterKeys.filename]),
+					link=f"{site_link}/{downstream_page[FrontmatterKeys.filename]}",
 					description=downstream_page["description"],
 				) for downstream_page in downstream_frontmatter
 			]
@@ -718,6 +719,12 @@ def main(argv: List[str]) -> None:
 
 	# update the globals
 	update_extras(CFG)
+	# validate cfg
+	if CFG["make_rss"]:
+		if CFG["site_link"] is None:
+			raise ValueError("Config validation: `site_link` must be set to generate rss")
+		if not CFG["make_index_files"]:
+			raise ValueError("Config validation: `make_index_files` must be set to generate rss")
 
 	# check for force rebuild
 	if "--rebuild" in argv:

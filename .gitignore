@@ -1,4 +1,5 @@
 docs/old/**
+example/.build_time
 
 # vscode stuff
 .vscode/**
