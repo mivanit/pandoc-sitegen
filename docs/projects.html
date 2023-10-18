@@ -211,7 +211,10 @@ mustache</em><br />
 looking at)
 </li>
 </ul>
-<p>{{ &lt;strong&gt;globals&lt;/strong&gt;.shuffle_script }}</p>
+<script>
+  var ul = document.querySelector('ul#shuffleme');
+  for (var i = ul.children.length; i >= 0; i--) {ul.appendChild(ul.children[Math.random() * i | 0]);}
+</script>
 <p>If you refresh, the projects will be shuffled! this is done via
 including a script from the globals (with triple braces, to avoid html
 escaping).</p>

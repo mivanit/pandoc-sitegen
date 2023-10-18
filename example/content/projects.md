@@ -25,7 +25,7 @@ __index__: true
 No projects yet! :(
 {{/__children__}}
 
-{{{__globals__.shuffle_script}}}
+{{{ __globals__.extras_data.shuffle_script }}}
 
 If you refresh, the projects will be shuffled! this is done via including a script from the globals (with triple braces, to avoid html escaping).
 
