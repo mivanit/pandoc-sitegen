@@ -1,4 +1,4 @@
-> this project is no longer maintained. I wrote [pdj-sitegen](https://github.com/mivanit/pdj-sitegen) as a replacement so consider checking that out instead?
+# **this project is no longer maintained. I wrote [pdj-sitegen](https://github.com/mivanit/pdj-sitegen) as a replacement so consider checking that out instead?**
 
 yet another site generator using pandoc. This one lets you use the [mustache](http://mustache.github.io/mustache.5.html) templating language to do some cool magic
 
